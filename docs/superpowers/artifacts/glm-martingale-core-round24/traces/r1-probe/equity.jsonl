@@ -1,0 +1,17 @@
+{"timestamp":10,"stream":"equity","event":"equity","order_id":null,"group_id":null,"symbol":null,"quantity":null,"quote":999.997,"detail":"running-peak equity DD"}
+{"timestamp":10,"stream":"equity","event":"equity","order_id":null,"group_id":null,"symbol":null,"quantity":null,"quote":999.991,"detail":"running-peak equity DD"}
+{"timestamp":11,"stream":"equity","event":"equity","order_id":null,"group_id":null,"symbol":null,"quantity":null,"quote":999.985,"detail":"running-peak equity DD"}
+{"timestamp":11,"stream":"equity","event":"equity","order_id":null,"group_id":null,"symbol":null,"quantity":null,"quote":999.979,"detail":"running-peak equity DD"}
+{"timestamp":12,"stream":"equity","event":"equity","order_id":null,"group_id":null,"symbol":null,"quantity":null,"quote":999.9730000000001,"detail":"running-peak equity DD"}
+{"timestamp":12,"stream":"equity","event":"equity","order_id":null,"group_id":null,"symbol":null,"quantity":null,"quote":999.9670000000001,"detail":"running-peak equity DD"}
+{"timestamp":20,"stream":"equity","event":"equity","order_id":null,"group_id":null,"symbol":null,"quantity":null,"quote":999.66394,"detail":"running-peak equity DD"}
+{"timestamp":30,"stream":"equity","event":"equity","order_id":null,"group_id":null,"symbol":null,"quantity":null,"quote":999.66094,"detail":"running-peak equity DD"}
+{"timestamp":30,"stream":"equity","event":"equity","order_id":null,"group_id":null,"symbol":null,"quantity":null,"quote":999.6579399999999,"detail":"running-peak equity DD"}
+{"timestamp":30,"stream":"equity","event":"equity","order_id":null,"group_id":null,"symbol":null,"quantity":null,"quote":999.65744,"detail":"running-peak equity DD"}
+{"timestamp":30,"stream":"equity","event":"equity","order_id":null,"group_id":null,"symbol":null,"quantity":null,"quote":999.65897,"detail":"running-peak equity DD"}
+{"timestamp":30,"stream":"equity","event":"equity","order_id":null,"group_id":null,"symbol":null,"quantity":null,"quote":999.65797,"detail":"running-peak equity DD"}
+{"timestamp":30,"stream":"equity","event":"equity","order_id":null,"group_id":null,"symbol":null,"quantity":null,"quote":999.65897,"detail":"running-peak equity DD"}
+{"timestamp":30,"stream":"equity","event":"equity","order_id":null,"group_id":null,"symbol":null,"quantity":null,"quote":999.65797,"detail":"running-peak equity DD"}
+{"timestamp":30,"stream":"equity","event":"equity","order_id":null,"group_id":null,"symbol":null,"quantity":null,"quote":999.65897,"detail":"running-peak equity DD"}
+{"timestamp":50,"stream":"equity","event":"equity","order_id":null,"group_id":null,"symbol":null,"quantity":null,"quote":999.35897,"detail":"running-peak equity DD"}
+{"timestamp":60,"stream":"equity","event":"equity","order_id":null,"group_id":null,"symbol":null,"quantity":null,"quote":999.35897,"detail":"running-peak equity DD"}

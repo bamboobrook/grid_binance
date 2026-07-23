@@ -1,0 +1,6 @@
+{"timestamp":39,"stream":"signal","event":"lagged_signal","order_id":null,"group_id":null,"symbol":"BTCUSDT","quantity":null,"quote":null,"detail":"completed bucket t-1"}
+{"timestamp":39,"stream":"signal","event":"lagged_signal","order_id":null,"group_id":null,"symbol":"ETHUSDT","quantity":null,"quote":null,"detail":"completed bucket t-1"}
+{"timestamp":39,"stream":"signal","event":"lagged_signal","order_id":null,"group_id":null,"symbol":"BNBUSDT","quantity":null,"quote":null,"detail":"completed bucket t-1"}
+{"timestamp":39,"stream":"signal","event":"lagged_signal","order_id":null,"group_id":null,"symbol":"SOLUSDT","quantity":null,"quote":null,"detail":"completed bucket t-1"}
+{"timestamp":39,"stream":"signal","event":"lagged_signal","order_id":null,"group_id":null,"symbol":"XRPUSDT","quantity":null,"quote":null,"detail":"completed bucket t-1"}
+{"timestamp":39,"stream":"signal","event":"lagged_signal","order_id":null,"group_id":null,"symbol":"DOGEUSDT","quantity":null,"quote":null,"detail":"completed bucket t-1"}

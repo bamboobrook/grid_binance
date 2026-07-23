@@ -1,0 +1,10 @@
+{"timestamp":10,"stream":"trade","event":"partial_fill","order_id":"fo-0-0","group_id":"pair-0","symbol":"BTCUSDT","quantity":0.05,"quote":5.0,"detail":"actual fill changes account state"}
+{"timestamp":10,"stream":"trade","event":"fill","order_id":"fo-0-1","group_id":"pair-0","symbol":"ETHUSDT","quantity":0.1,"quote":10.0,"detail":"actual fill changes account state"}
+{"timestamp":11,"stream":"trade","event":"fill","order_id":"fo-1-0","group_id":"pair-1","symbol":"BNBUSDT","quantity":0.1,"quote":10.0,"detail":"actual fill changes account state"}
+{"timestamp":11,"stream":"trade","event":"fill","order_id":"fo-1-1","group_id":"pair-1","symbol":"SOLUSDT","quantity":0.1,"quote":10.0,"detail":"actual fill changes account state"}
+{"timestamp":12,"stream":"trade","event":"fill","order_id":"fo-2-0","group_id":"pair-2","symbol":"XRPUSDT","quantity":0.1,"quote":10.0,"detail":"actual fill changes account state"}
+{"timestamp":12,"stream":"trade","event":"fill","order_id":"fo-2-1","group_id":"pair-2","symbol":"DOGEUSDT","quantity":0.1,"quote":10.0,"detail":"actual fill changes account state"}
+{"timestamp":22,"stream":"trade","event":"legging_pnl","order_id":"delayed-leg","group_id":"pair-0","symbol":"ETHUSDT","quantity":0.05,"quote":-0.1,"detail":"delayed leg executed at event-time price"}
+{"timestamp":22,"stream":"trade","event":"fill","order_id":"delayed-leg","group_id":"pair-0","symbol":"ETHUSDT","quantity":0.05,"quote":5.1000000000000005,"detail":"actual fill changes account state"}
+{"timestamp":30,"stream":"trade","event":"fill","order_id":"reject-first","group_id":"pair-1","symbol":"LINKUSDT","quantity":0.05,"quote":5.0,"detail":"actual fill changes account state"}
+{"timestamp":31,"stream":"trade","event":"hedge_or_flatten","order_id":null,"group_id":null,"symbol":"LINKUSDT","quantity":0.05,"quote":-0.003,"detail":"closing cost included"}

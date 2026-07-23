@@ -1,0 +1,1 @@
+{"timestamp":30,"stream":"rejection","event":"exchange_reject","order_id":"reject-second","group_id":"pair-1","symbol":"LTCUSDT","quantity":0.0,"quote":null,"detail":"pre-registered hedge-or-flatten required"}

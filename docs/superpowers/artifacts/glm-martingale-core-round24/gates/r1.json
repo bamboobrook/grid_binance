@@ -1,0 +1,84 @@
+{
+  "git_commit": "2aa90991723e82400f24eb32d6ca7439194aec61",
+  "git_dirty": false,
+  "legacy_arithmetic_canaries": {
+    "canaries": [
+      {
+        "candidate": false,
+        "id": "R4-corrected",
+        "status": "recomputed_synthetic_contract"
+      },
+      {
+        "candidate": false,
+        "id": "R7-corrected",
+        "status": "recomputed_synthetic_contract"
+      },
+      {
+        "candidate": false,
+        "id": "R19-M1R-F3-028-044",
+        "status": "concentration_regression_only"
+      },
+      {
+        "candidate": false,
+        "id": "R23-BTC-corrected",
+        "status": "single_symbol_regression_only"
+      }
+    ],
+    "candidate_eligible": false,
+    "purpose": "changed-engine arithmetic regression only"
+  },
+  "passed": true,
+  "phase": "R1",
+  "probe": {
+    "actual_assets": [
+      "BNBUSDT",
+      "BTCUSDT",
+      "DOGEUSDT",
+      "ETHUSDT",
+      "SOLUSDT",
+      "XRPUSDT"
+    ],
+    "candidate_eligible": false,
+    "independent_adapter_parity": true,
+    "legacy_sources": {
+      "canaries": [
+        {
+          "candidate": false,
+          "id": "R4-corrected",
+          "status": "recomputed_synthetic_contract"
+        },
+        {
+          "candidate": false,
+          "id": "R7-corrected",
+          "status": "recomputed_synthetic_contract"
+        },
+        {
+          "candidate": false,
+          "id": "R19-M1R-F3-028-044",
+          "status": "concentration_regression_only"
+        },
+        {
+          "candidate": false,
+          "id": "R23-BTC-corrected",
+          "status": "single_symbol_regression_only"
+        }
+      ],
+      "candidate_eligible": false,
+      "purpose": "changed-engine arithmetic regression only"
+    },
+    "passed": true,
+    "reserved_quote": 37.605,
+    "restart_hash_match": true,
+    "shared_equity": 999.35897
+  },
+  "registry": {
+    "running_rows": 2,
+    "terminal_rows": 2,
+    "unique_experiments": 2,
+    "valid": true,
+    "violations": []
+  },
+  "required_test_count": 15,
+  "required_tests_passed": 15,
+  "upstream_commit": "2aa90991723e82400f24eb32d6ca7439194aec61"
+}

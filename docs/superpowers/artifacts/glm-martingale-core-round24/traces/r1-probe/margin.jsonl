@@ -1,0 +1,5 @@
+{"timestamp":0,"stream":"margin","event":"reserve","order_id":null,"group_id":"pair-0","symbol":null,"quantity":null,"quote":12.535,"detail":"shared reserve accepted"}
+{"timestamp":0,"stream":"margin","event":"reserve","order_id":null,"group_id":"pair-1","symbol":null,"quantity":null,"quote":12.535,"detail":"shared reserve accepted"}
+{"timestamp":0,"stream":"margin","event":"reserve","order_id":null,"group_id":"pair-2","symbol":null,"quantity":null,"quote":12.535,"detail":"shared reserve accepted"}
+{"timestamp":0,"stream":"margin","event":"reserve","order_id":null,"group_id":"delayed-leg","symbol":null,"quantity":null,"quote":2.508,"detail":"shared reserve accepted"}
+{"timestamp":50,"stream":"margin","event":"mark","order_id":null,"group_id":null,"symbol":null,"quantity":null,"quote":999.35897,"detail":"maintenance=0.30050000"}

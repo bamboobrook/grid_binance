@@ -1,0 +1,6 @@
+{"timestamp":40,"stream":"funding","event":"funding_cashflow","order_id":null,"group_id":null,"symbol":"BTCUSDT","quantity":0.05,"quote":-0.0005,"detail":"perp funding settled into shared wallet"}
+{"timestamp":40,"stream":"funding","event":"funding_cashflow","order_id":null,"group_id":null,"symbol":"ETHUSDT","quantity":0.15000000000000002,"quote":0.0015300000000000003,"detail":"perp funding settled into shared wallet"}
+{"timestamp":40,"stream":"funding","event":"funding_cashflow","order_id":null,"group_id":null,"symbol":"BNBUSDT","quantity":0.1,"quote":-0.001,"detail":"perp funding settled into shared wallet"}
+{"timestamp":40,"stream":"funding","event":"funding_cashflow","order_id":null,"group_id":null,"symbol":"SOLUSDT","quantity":0.1,"quote":0.001,"detail":"perp funding settled into shared wallet"}
+{"timestamp":40,"stream":"funding","event":"funding_cashflow","order_id":null,"group_id":null,"symbol":"XRPUSDT","quantity":0.1,"quote":-0.001,"detail":"perp funding settled into shared wallet"}
+{"timestamp":40,"stream":"funding","event":"funding_cashflow","order_id":null,"group_id":null,"symbol":"DOGEUSDT","quantity":0.1,"quote":0.001,"detail":"perp funding settled into shared wallet"}

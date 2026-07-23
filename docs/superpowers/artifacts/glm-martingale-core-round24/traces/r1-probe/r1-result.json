@@ -1,0 +1,42 @@
+{
+  "actual_assets": [
+    "BNBUSDT",
+    "BTCUSDT",
+    "DOGEUSDT",
+    "ETHUSDT",
+    "SOLUSDT",
+    "XRPUSDT"
+  ],
+  "candidate_eligible": false,
+  "independent_adapter_parity": true,
+  "legacy_sources": {
+    "canaries": [
+      {
+        "candidate": false,
+        "id": "R4-corrected",
+        "status": "recomputed_synthetic_contract"
+      },
+      {
+        "candidate": false,
+        "id": "R7-corrected",
+        "status": "recomputed_synthetic_contract"
+      },
+      {
+        "candidate": false,
+        "id": "R19-M1R-F3-028-044",
+        "status": "concentration_regression_only"
+      },
+      {
+        "candidate": false,
+        "id": "R23-BTC-corrected",
+        "status": "single_symbol_regression_only"
+      }
+    ],
+    "candidate_eligible": false,
+    "purpose": "changed-engine arithmetic regression only"
+  },
+  "passed": true,
+  "reserved_quote": 37.605000000000004,
+  "restart_hash_match": true,
+  "shared_equity": 999.35897
+}
