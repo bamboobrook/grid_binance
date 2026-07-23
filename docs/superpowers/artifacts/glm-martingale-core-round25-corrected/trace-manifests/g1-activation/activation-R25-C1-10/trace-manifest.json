@@ -1,0 +1,75 @@
+{
+  "data_hashes": {
+    "exchange_info_sha256": "0320b9b72fe178b71505e344b092c4db0a98554529061f2138c562be24b5098d",
+    "manifest_sha256": "346494fd70ca51b33dbfa997a906a2fb573bb2b437c869b7fcc9df051c100741"
+  },
+  "policy_hash": "f9c42220b929f51ba17c08ffe1a2ebd9949d539e1d2137f83e458f4760c1fe9f",
+  "source_commit": "f710449b7f933fe954ae5a6e936ecf0b7a1798dd",
+  "source_tree": "4182a7daa503b1903de0073629225fbc3b9afc6c",
+  "streams": {
+    "equity": {
+      "bytes": 0,
+      "raw_path": "artifacts-local/round25-corrected/f710449b7f933fe954ae5a6e936ecf0b7a1798dd/g1-activation/activation-R25-C1-10/equity.jsonl",
+      "rows": 0,
+      "sample_path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/trace-manifests/g1-activation/activation-R25-C1-10/equity-sample.json",
+      "schema": "jsonl/round25-corrected-trace-v1",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "event": {
+      "bytes": 37181,
+      "raw_path": "artifacts-local/round25-corrected/f710449b7f933fe954ae5a6e936ecf0b7a1798dd/g1-activation/activation-R25-C1-10/event.jsonl",
+      "rows": 13,
+      "sample_path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/trace-manifests/g1-activation/activation-R25-C1-10/event-sample.json",
+      "schema": "jsonl/round25-corrected-trace-v1",
+      "sha256": "9f832ddea1f1b2105df92c81a1324d00a32f81b60a7fbf09085f64ccef0e5ea3"
+    },
+    "funding": {
+      "bytes": 0,
+      "raw_path": "artifacts-local/round25-corrected/f710449b7f933fe954ae5a6e936ecf0b7a1798dd/g1-activation/activation-R25-C1-10/funding.jsonl",
+      "rows": 0,
+      "sample_path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/trace-manifests/g1-activation/activation-R25-C1-10/funding-sample.json",
+      "schema": "jsonl/round25-corrected-trace-v1",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "margin": {
+      "bytes": 0,
+      "raw_path": "artifacts-local/round25-corrected/f710449b7f933fe954ae5a6e936ecf0b7a1798dd/g1-activation/activation-R25-C1-10/margin.jsonl",
+      "rows": 0,
+      "sample_path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/trace-manifests/g1-activation/activation-R25-C1-10/margin-sample.json",
+      "schema": "jsonl/round25-corrected-trace-v1",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "order": {
+      "bytes": 0,
+      "raw_path": "artifacts-local/round25-corrected/f710449b7f933fe954ae5a6e936ecf0b7a1798dd/g1-activation/activation-R25-C1-10/order.jsonl",
+      "rows": 0,
+      "sample_path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/trace-manifests/g1-activation/activation-R25-C1-10/order-sample.json",
+      "schema": "jsonl/round25-corrected-trace-v1",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "rejection": {
+      "bytes": 0,
+      "raw_path": "artifacts-local/round25-corrected/f710449b7f933fe954ae5a6e936ecf0b7a1798dd/g1-activation/activation-R25-C1-10/rejection.jsonl",
+      "rows": 0,
+      "sample_path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/trace-manifests/g1-activation/activation-R25-C1-10/rejection-sample.json",
+      "schema": "jsonl/round25-corrected-trace-v1",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "signal": {
+      "bytes": 2556740,
+      "raw_path": "artifacts-local/round25-corrected/f710449b7f933fe954ae5a6e936ecf0b7a1798dd/g1-activation/activation-R25-C1-10/signal.jsonl",
+      "rows": 6576,
+      "sample_path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/trace-manifests/g1-activation/activation-R25-C1-10/signal-sample.json",
+      "schema": "jsonl/round25-corrected-trace-v1",
+      "sha256": "c981c1e80aeb454073850625e9260172231a3b63034c01bb381208985e83f463"
+    },
+    "trade": {
+      "bytes": 0,
+      "raw_path": "artifacts-local/round25-corrected/f710449b7f933fe954ae5a6e936ecf0b7a1798dd/g1-activation/activation-R25-C1-10/trade.jsonl",
+      "rows": 0,
+      "sample_path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/trace-manifests/g1-activation/activation-R25-C1-10/trade-sample.json",
+      "schema": "jsonl/round25-corrected-trace-v1",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  }
+}

@@ -1,0 +1,297 @@
+{
+  "abort_count": 0,
+  "actual_assets": [
+    "BNBUSDT",
+    "SOLUSDT"
+  ],
+  "annualized_return_pct": -0.012460235838507305,
+  "balance_drawdown_pct": 0.0013641870000014934,
+  "btc_order_count": 0,
+  "btc_trade_count": 0,
+  "compounded_return_pct": -0.03638636210483437,
+  "decision_hash": "fc1a6862da54c4ae766eb09d02dd9c44b3bb9f91f905306eb3e59f3173764b2c",
+  "distinct_fitted_pairs": [
+    "BNBUSDT-SOLUSDT",
+    "XRPUSDT-DOGEUSDT"
+  ],
+  "distinct_traded_pairs": [
+    "BNBUSDT-SOLUSDT"
+  ],
+  "eligible_alts": [
+    "ETHUSDT",
+    "BNBUSDT",
+    "SOLUSDT",
+    "XRPUSDT",
+    "DOGEUSDT",
+    "LINKUSDT"
+  ],
+  "end_ms": 1780272000000,
+  "fill_count": 2,
+  "final_equity": 1999.2722727579032,
+  "final_groups": 0,
+  "final_pending": 0,
+  "final_positions": 0,
+  "final_reserved_quote": -0.0,
+  "fit_hash": "68a316b182ef9b29db8682ee933d6395f57b8e572854bdf36d89d681128403df",
+  "fitted_pair_count": 2,
+  "fo_signal_count": 1,
+  "immediate_fail_reasons": [
+    "actual_assets_below_6",
+    "distinct_traded_pairs_below_3",
+    "loss_after_add_so_groups_below_2",
+    "positive_blocks_below_8",
+    "symbol_positive_contribution_above_50pct"
+  ],
+  "label": "full-R25-C1-14",
+  "loss_after_add_so_groups": 0,
+  "max_equity_drawdown_pct": 0.047305835497584305,
+  "metrics": {
+    "actual_signed_legs": [
+      {
+        "group_id": "R25-C1-14-full-R25-C1-14-g000001",
+        "position_mode": "long",
+        "resolved_gross": 22.2021,
+        "rounded_price": 740.07,
+        "rounded_quantity": 0.03,
+        "symbol": "BNBUSDT",
+        "timestamp": 1780196400000
+      },
+      {
+        "group_id": "R25-C1-14-full-R25-C1-14-g000001",
+        "position_mode": "short",
+        "resolved_gross": 23.2708,
+        "rounded_price": 83.11,
+        "rounded_quantity": 0.28,
+        "symbol": "SOLUSDT",
+        "timestamp": 1780196400000
+      }
+    ],
+    "annualized_return_pct": -0.012460235838507305,
+    "balance_drawdown_pct": 0.0013641870000014934,
+    "blocks": [
+      {
+        "end": "2023-09-30",
+        "end_equity": 2000.0,
+        "gross_loss": 0.0,
+        "gross_profit": 0.0,
+        "local_drawdown_pct": 0.0,
+        "positive": false,
+        "profit_factor": 0.0,
+        "raw_return_pct": 0.0,
+        "start": "2023-07-01",
+        "start_equity": 2000.0
+      },
+      {
+        "end": "2023-12-31",
+        "end_equity": 2000.0,
+        "gross_loss": 0.0,
+        "gross_profit": 0.0,
+        "local_drawdown_pct": 0.0,
+        "positive": false,
+        "profit_factor": 0.0,
+        "raw_return_pct": 0.0,
+        "start": "2023-10-01",
+        "start_equity": 2000.0
+      },
+      {
+        "end": "2024-03-31",
+        "end_equity": 2000.0,
+        "gross_loss": 0.0,
+        "gross_profit": 0.0,
+        "local_drawdown_pct": 0.0,
+        "positive": false,
+        "profit_factor": 0.0,
+        "raw_return_pct": 0.0,
+        "start": "2024-01-01",
+        "start_equity": 2000.0
+      },
+      {
+        "end": "2024-06-30",
+        "end_equity": 2000.0,
+        "gross_loss": 0.0,
+        "gross_profit": 0.0,
+        "local_drawdown_pct": 0.0,
+        "positive": false,
+        "profit_factor": 0.0,
+        "raw_return_pct": 0.0,
+        "start": "2024-04-01",
+        "start_equity": 2000.0
+      },
+      {
+        "end": "2024-09-30",
+        "end_equity": 2000.0,
+        "gross_loss": 0.0,
+        "gross_profit": 0.0,
+        "local_drawdown_pct": 0.0,
+        "positive": false,
+        "profit_factor": 0.0,
+        "raw_return_pct": 0.0,
+        "start": "2024-07-01",
+        "start_equity": 2000.0
+      },
+      {
+        "end": "2024-12-31",
+        "end_equity": 2000.0,
+        "gross_loss": 0.0,
+        "gross_profit": 0.0,
+        "local_drawdown_pct": 0.0,
+        "positive": false,
+        "profit_factor": 0.0,
+        "raw_return_pct": 0.0,
+        "start": "2024-10-01",
+        "start_equity": 2000.0
+      },
+      {
+        "end": "2025-03-31",
+        "end_equity": 2000.0,
+        "gross_loss": 0.0,
+        "gross_profit": 0.0,
+        "local_drawdown_pct": 0.0,
+        "positive": false,
+        "profit_factor": 0.0,
+        "raw_return_pct": 0.0,
+        "start": "2025-01-01",
+        "start_equity": 2000.0
+      },
+      {
+        "end": "2025-06-30",
+        "end_equity": 2000.0,
+        "gross_loss": 0.0,
+        "gross_profit": 0.0,
+        "local_drawdown_pct": 0.0,
+        "positive": false,
+        "profit_factor": 0.0,
+        "raw_return_pct": 0.0,
+        "start": "2025-04-01",
+        "start_equity": 2000.0
+      },
+      {
+        "end": "2025-09-30",
+        "end_equity": 2000.0,
+        "gross_loss": 0.0,
+        "gross_profit": 0.0,
+        "local_drawdown_pct": 0.0,
+        "positive": false,
+        "profit_factor": 0.0,
+        "raw_return_pct": 0.0,
+        "start": "2025-07-01",
+        "start_equity": 2000.0
+      },
+      {
+        "end": "2025-12-31",
+        "end_equity": 2000.0,
+        "gross_loss": 0.0,
+        "gross_profit": 0.0,
+        "local_drawdown_pct": 0.0,
+        "positive": false,
+        "profit_factor": 0.0,
+        "raw_return_pct": 0.0,
+        "start": "2025-10-01",
+        "start_equity": 2000.0
+      },
+      {
+        "end": "2026-03-31",
+        "end_equity": 2000.0,
+        "gross_loss": 0.0,
+        "gross_profit": 0.0,
+        "local_drawdown_pct": 0.0,
+        "positive": false,
+        "profit_factor": 0.0,
+        "raw_return_pct": 0.0,
+        "start": "2026-01-01",
+        "start_equity": 2000.0
+      },
+      {
+        "end": "2026-05-31",
+        "end_equity": 1999.300946417903,
+        "gross_loss": 0.7256914820970028,
+        "gross_profit": 0.0,
+        "local_drawdown_pct": 0.045585932084143535,
+        "positive": false,
+        "profit_factor": 0.0,
+        "raw_return_pct": -0.03495267910484934,
+        "start": "2026-04-01",
+        "start_equity": 2000.0
+      }
+    ],
+    "calmar": -0.26339743728114884,
+    "compounded_return_pct": -0.03638636210483437,
+    "contribution": {
+      "block_max_positive_pct": 0.0,
+      "group": {
+        "R25-C1-14-full-R25-C1-14-g000001": -0.7018736600000014
+      },
+      "group_max_positive_pct": 0.0,
+      "symbol": {
+        "BNBUSDT": -0.8588136600000013,
+        "SOLUSDT": 0.15693999999999986
+      },
+      "symbol_max_positive_pct": 100.0
+    },
+    "cost_to_gross_profit_pct": 31.32865965923856,
+    "costs": {
+      "close_fee_cost": 0.017782439999999997,
+      "close_slippage_cost": 0.008891219999999998,
+      "entry_fee_cost": 0.018189160000000003,
+      "entry_slippage_cost": 0.009094580000000001,
+      "funding_pnl": 0.0014301579030000003,
+      "gross_realized_loss": 0.8460000000000013,
+      "gross_realized_profit": 0.17079999999999987,
+      "legging_cost": 0.0,
+      "liquidation_cost": 0.0
+    },
+    "counts": {
+      "dynamic_freeze": 0,
+      "legging": 0,
+      "liquidation": 0,
+      "order_submit": 2,
+      "partial_fill": 0,
+      "rejection": 0
+    },
+    "days": 1066.0,
+    "ddr": -0.7691728033572615,
+    "end_ms": 1780272000000,
+    "equity_drawdown_pct": 0.047305835497584305,
+    "final_equity": 1999.2722727579032,
+    "final_state": {
+      "groups": 0,
+      "pending": 0,
+      "positions": 0,
+      "reserved_quote": -0.0
+    },
+    "final_wallet": 1999.2722727579032,
+    "gross_profit": 0.17223015790299986,
+    "positive_blocks": 0,
+    "principal": 2000.0,
+    "risk": {
+      "final_reserve_components": {},
+      "peak_effective_leverage": 0.022844167114293455,
+      "peak_gross": 45.6909,
+      "peak_maintenance": 1.1422725,
+      "peak_reserved_quote": 32.93
+    },
+    "sharpe": -0.5854254903015715,
+    "sortino": 0.0,
+    "start_ms": 1688169600000,
+    "tail_loss_pct": 0.0006594845114122516
+  },
+  "mode": "full",
+  "order_hash": "4448e4e783c3b32bac7b97f4b45aa3c9555fefaaaa0527d8427277eb67b106a4",
+  "order_submit_count": 2,
+  "p_a": true,
+  "p_b": false,
+  "policy_id": "R25-C1-14",
+  "positive_blocks": 0,
+  "rejection_count": 0,
+  "rejection_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "risk_path_first_ms": 1688169600000,
+  "risk_path_last_ms": 1780271940000,
+  "risk_path_rows": 1535040,
+  "so_decision_count": 20,
+  "so_decision_true_count": 0,
+  "so_fill_count": 0,
+  "so_guard_call_path_hash": "950b69c35b4386005bcfa965bfe48336a45c2a88c9d4ef516ca1d66ffa1a89e6",
+  "start_ms": 1688169600000,
+  "streams": {},
+  "tp_count": 0
+}

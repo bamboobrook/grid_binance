@@ -1,0 +1,1078 @@
+{
+  "first": {
+    "cashflow": -0.0017760446848000002,
+    "event": "funding_cashflow",
+    "rate": 0.00007108,
+    "symbol": "DOGEUSDT",
+    "timestamp": 1728489600000
+  },
+  "last": {
+    "detail": "perp funding settled into shared wallet",
+    "event": "funding_cashflow",
+    "group_id": null,
+    "metadata": {
+      "cashflow": -0.001764786405,
+      "rate": 0.00006137
+    },
+    "order_id": null,
+    "quantity": 0.19,
+    "quote": -0.001764786405,
+    "symbol": "SOLUSDT",
+    "timestamp": 1745424000000
+  },
+  "row_count": 168,
+  "sample": [
+    {
+      "cashflow": -0.0017760446848000002,
+      "event": "funding_cashflow",
+      "rate": 0.00007108,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1728489600000
+    },
+    {
+      "cashflow": 0.0024949640000000006,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "LINKUSDT",
+      "timestamp": 1728489600000
+    },
+    {
+      "cashflow": 0.00245349,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "LINKUSDT",
+      "timestamp": 1728518400000
+    },
+    {
+      "cashflow": 0.0016507467500000003,
+      "event": "funding_cashflow",
+      "rate": 0.00006668,
+      "symbol": "LINKUSDT",
+      "timestamp": 1728547200000
+    },
+    {
+      "cashflow": 0.0006727812984,
+      "event": "funding_cashflow",
+      "rate": -0.00002826,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1728576000000
+    },
+    {
+      "cashflow": 0.00023609474200000002,
+      "event": "funding_cashflow",
+      "rate": -9.86e-6,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1728604800000
+    },
+    {
+      "cashflow": -0.002433568,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1728633600000
+    },
+    {
+      "cashflow": 0.00017742367500000003,
+      "event": "funding_cashflow",
+      "rate": 7.15e-6,
+      "symbol": "LINKUSDT",
+      "timestamp": 1728633600000
+    },
+    {
+      "cashflow": 0.0015745493192000002,
+      "event": "funding_cashflow",
+      "rate": 0.00006218,
+      "symbol": "LINKUSDT",
+      "timestamp": 1728662400001
+    },
+    {
+      "cashflow": 0.002540166,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "LINKUSDT",
+      "timestamp": 1728691200000
+    },
+    {
+      "cashflow": -0.0025151540000000003,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1728720000001
+    },
+    {
+      "cashflow": -0.0025160580000000003,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1728748800000
+    },
+    {
+      "cashflow": -0.0023555334996,
+      "event": "funding_cashflow",
+      "rate": 0.00009362,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1728777600000
+    },
+    {
+      "cashflow": 0.002562534,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "LINKUSDT",
+      "timestamp": 1728777600000
+    },
+    {
+      "cashflow": 0.0025569420000000004,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "LINKUSDT",
+      "timestamp": 1728806400000
+    },
+    {
+      "cashflow": 0.0024886730000000003,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "LINKUSDT",
+      "timestamp": 1728835200000
+    },
+    {
+      "cashflow": -0.0025165100000000004,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1728864000000
+    },
+    {
+      "cashflow": -0.00254024,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1728892800000
+    },
+    {
+      "cashflow": -0.002612786,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1728921600000
+    },
+    {
+      "cashflow": -0.002636064,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1728950400000
+    },
+    {
+      "cashflow": 0.0026284730000000005,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "LINKUSDT",
+      "timestamp": 1728950400000
+    },
+    {
+      "cashflow": 0.002678335,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "LINKUSDT",
+      "timestamp": 1728979200000
+    },
+    {
+      "cashflow": 0.002594921,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "LINKUSDT",
+      "timestamp": 1729008000000
+    },
+    {
+      "cashflow": -0.0026548220000000003,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1729036800000
+    },
+    {
+      "cashflow": -0.0027174240000000004,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1729065600001
+    },
+    {
+      "cashflow": 0.001261589868,
+      "event": "funding_cashflow",
+      "rate": 0.00004938,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1744848000001
+    },
+    {
+      "cashflow": -0.00249641,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "SOLUSDT",
+      "timestamp": 1744848000001
+    },
+    {
+      "cashflow": -0.00255018,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "SOLUSDT",
+      "timestamp": 1744876800000
+    },
+    {
+      "cashflow": -0.00040868578200000007,
+      "event": "funding_cashflow",
+      "rate": 0.00001614,
+      "symbol": "SOLUSDT",
+      "timestamp": 1744905600001
+    },
+    {
+      "cashflow": 0.00010615628100000001,
+      "event": "funding_cashflow",
+      "rate": 4.13e-6,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1744934400000
+    },
+    {
+      "cashflow": -0.00020264547600000002,
+      "event": "funding_cashflow",
+      "rate": -7.92e-6,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1744963200000
+    },
+    {
+      "cashflow": 0.001299882342,
+      "event": "funding_cashflow",
+      "rate": 0.00005041,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1744992000000
+    },
+    {
+      "cashflow": 0.0008412982260000002,
+      "event": "funding_cashflow",
+      "rate": -0.00003334,
+      "symbol": "SOLUSDT",
+      "timestamp": 1744992000000
+    },
+    {
+      "cashflow": 0.001440458837,
+      "event": "funding_cashflow",
+      "rate": -0.00005659,
+      "symbol": "SOLUSDT",
+      "timestamp": 1745020800000
+    },
+    {
+      "cashflow": 0.001484406882,
+      "event": "funding_cashflow",
+      "rate": -0.00005634,
+      "symbol": "SOLUSDT",
+      "timestamp": 1745049600000
+    },
+    {
+      "cashflow": 0.003448822563,
+      "event": "funding_cashflow",
+      "rate": -0.00013071,
+      "symbol": "SOLUSDT",
+      "timestamp": 1745078400000
+    },
+    {
+      "cashflow": 0.002031201612,
+      "event": "funding_cashflow",
+      "rate": 0.00007828,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1745107200000
+    },
+    {
+      "cashflow": 0.0025905000000000004,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1745136000000
+    },
+    {
+      "cashflow": -0.0019008603900000003,
+      "event": "funding_cashflow",
+      "rate": -0.0000754,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1745164800000
+    },
+    {
+      "cashflow": 0.003496166896,
+      "event": "funding_cashflow",
+      "rate": -0.00013544,
+      "symbol": "SOLUSDT",
+      "timestamp": 1745164800000
+    },
+    {
+      "cashflow": 0.005144951765,
+      "event": "funding_cashflow",
+      "rate": -0.00019655,
+      "symbol": "SOLUSDT",
+      "timestamp": 1745193600000
+    },
+    {
+      "cashflow": 0.00412563758,
+      "event": "funding_cashflow",
+      "rate": -0.0001549,
+      "symbol": "SOLUSDT",
+      "timestamp": 1745222400005
+    },
+    {
+      "cashflow": 0.002649075,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1745251200003
+    },
+    {
+      "cashflow": 0.0021354485955000003,
+      "event": "funding_cashflow",
+      "rate": 0.00008131,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1745280000008
+    },
+    {
+      "cashflow": 0.00270171,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1745308800000
+    },
+    {
+      "cashflow": -0.0008949946580000001,
+      "event": "funding_cashflow",
+      "rate": 0.00003362,
+      "symbol": "SOLUSDT",
+      "timestamp": 1745308800000
+    },
+    {
+      "cashflow": -0.001255669568,
+      "event": "funding_cashflow",
+      "rate": 0.00004549,
+      "symbol": "SOLUSDT",
+      "timestamp": 1745337600000
+    },
+    {
+      "cashflow": -0.00282568,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "SOLUSDT",
+      "timestamp": 1745366400000
+    },
+    {
+      "cashflow": 0.0030013500000000003,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1745395200002
+    },
+    {
+      "cashflow": 0.00294327,
+      "event": "funding_cashflow",
+      "rate": 0.0001,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1745424000000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.0017760446848000002,
+        "rate": 0.00007108
+      },
+      "order_id": null,
+      "quantity": 226.0,
+      "quote": -0.0017760446848000002,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1728489600000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.0016120637856,
+        "rate": 0.00006612
+      },
+      "order_id": null,
+      "quantity": 226.0,
+      "quote": -0.0016120637856,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1728518400000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.00245349,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 2.33,
+      "quote": 0.00245349,
+      "symbol": "LINKUSDT",
+      "timestamp": 1728518400000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0016507467500000003,
+        "rate": 0.00006668
+      },
+      "order_id": null,
+      "quantity": 2.33,
+      "quote": 0.0016507467500000003,
+      "symbol": "LINKUSDT",
+      "timestamp": 1728547200000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0020704544964,
+        "rate": 0.00008361
+      },
+      "order_id": null,
+      "quantity": 2.33,
+      "quote": 0.0020704544964,
+      "symbol": "LINKUSDT",
+      "timestamp": 1728576000000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.00023609474200000002,
+        "rate": -9.86e-6
+      },
+      "order_id": null,
+      "quantity": 226.0,
+      "quote": 0.00023609474200000002,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1728604800000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.002433568,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 226.0,
+      "quote": -0.002433568,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1728633600000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.00046597150079999997,
+        "rate": -0.00001872
+      },
+      "order_id": null,
+      "quantity": 226.0,
+      "quote": 0.00046597150079999997,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1728662400001
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0015745493192000002,
+        "rate": 0.00006218
+      },
+      "order_id": null,
+      "quantity": 2.33,
+      "quote": 0.0015745493192000002,
+      "symbol": "LINKUSDT",
+      "timestamp": 1728662400001
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.002540166,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 2.33,
+      "quote": 0.002540166,
+      "symbol": "LINKUSDT",
+      "timestamp": 1728691200000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.002558573,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 2.33,
+      "quote": 0.002558573,
+      "symbol": "LINKUSDT",
+      "timestamp": 1728720000001
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.0025160580000000003,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 226.0,
+      "quote": -0.0025160580000000003,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1728748800000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.0023555334996,
+        "rate": 0.00009362
+      },
+      "order_id": null,
+      "quantity": 226.0,
+      "quote": -0.0023555334996,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1728777600000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.0025201259999999997,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 226.0,
+      "quote": -0.0025201259999999997,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1728806400000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0025569420000000004,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 2.33,
+      "quote": 0.0025569420000000004,
+      "symbol": "LINKUSDT",
+      "timestamp": 1728806400000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0024886730000000003,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 2.33,
+      "quote": 0.0024886730000000003,
+      "symbol": "LINKUSDT",
+      "timestamp": 1728835200000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.002503818,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 2.33,
+      "quote": 0.002503818,
+      "symbol": "LINKUSDT",
+      "timestamp": 1728864000000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0025671940000000005,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 2.33,
+      "quote": 0.0025671940000000005,
+      "symbol": "LINKUSDT",
+      "timestamp": 1728892800000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.002612786,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 226.0,
+      "quote": -0.002612786,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1728921600000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.002636064,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 226.0,
+      "quote": -0.002636064,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1728950400000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.00261821,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 226.0,
+      "quote": -0.00261821,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1728979200000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.002678335,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 2.33,
+      "quote": 0.002678335,
+      "symbol": "LINKUSDT",
+      "timestamp": 1728979200000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.002594921,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 2.33,
+      "quote": 0.002594921,
+      "symbol": "LINKUSDT",
+      "timestamp": 1729008000000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.002669947,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 2.33,
+      "quote": 0.002669947,
+      "symbol": "LINKUSDT",
+      "timestamp": 1729036800000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.0027174240000000004,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 226.0,
+      "quote": -0.0027174240000000004,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1729065600001
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.001261589868,
+        "rate": 0.00004938
+      },
+      "order_id": null,
+      "quantity": 165.0,
+      "quote": 0.001261589868,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1744848000001
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.00107130012,
+        "rate": 0.00004145
+      },
+      "order_id": null,
+      "quantity": 165.0,
+      "quote": 0.00107130012,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1744876800000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.00255018,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": -0.00255018,
+      "symbol": "SOLUSDT",
+      "timestamp": 1744876800000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.00040868578200000007,
+        "rate": 0.00001614
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": -0.00040868578200000007,
+      "symbol": "SOLUSDT",
+      "timestamp": 1744905600001
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.000047115592,
+        "rate": 1.84e-6
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": -0.000047115592,
+      "symbol": "SOLUSDT",
+      "timestamp": 1744934400000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.00020264547600000002,
+        "rate": -7.92e-6
+      },
+      "order_id": null,
+      "quantity": 165.0,
+      "quote": -0.00020264547600000002,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1744963200000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.001299882342,
+        "rate": 0.00005041
+      },
+      "order_id": null,
+      "quantity": 165.0,
+      "quote": 0.001299882342,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1744992000000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0025992450000000005,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 165.0,
+      "quote": 0.0025992450000000005,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1745020800000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0026235,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 165.0,
+      "quote": 0.0026235,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1745049600000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.001484406882,
+        "rate": -0.00005634
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.001484406882,
+      "symbol": "SOLUSDT",
+      "timestamp": 1745049600000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.003448822563,
+        "rate": -0.00013071
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.003448822563,
+      "symbol": "SOLUSDT",
+      "timestamp": 1745078400000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.002116802673,
+        "rate": -0.00007971
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.002116802673,
+      "symbol": "SOLUSDT",
+      "timestamp": 1745107200000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0025905000000000004,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 165.0,
+      "quote": 0.0025905000000000004,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1745136000000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.0019008603900000003,
+        "rate": -0.0000754
+      },
+      "order_id": null,
+      "quantity": 165.0,
+      "quote": -0.0019008603900000003,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1745164800000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0002276404515,
+        "rate": 8.89e-6
+      },
+      "order_id": null,
+      "quantity": 165.0,
+      "quote": 0.0002276404515,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1745193600000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.005144951765,
+        "rate": -0.00019655
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.005144951765,
+      "symbol": "SOLUSDT",
+      "timestamp": 1745193600000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.00412563758,
+        "rate": -0.0001549
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.00412563758,
+      "symbol": "SOLUSDT",
+      "timestamp": 1745222400005
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.002868349022,
+        "rate": -0.00010934
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.002868349022,
+      "symbol": "SOLUSDT",
+      "timestamp": 1745251200003
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0021354485955000003,
+        "rate": 0.00008131
+      },
+      "order_id": null,
+      "quantity": 165.0,
+      "quote": 0.0021354485955000003,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1745280000008
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.00270171,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 165.0,
+      "quote": 0.00270171,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1745308800000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0028356900000000005,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 165.0,
+      "quote": 0.0028356900000000005,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1745337600000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.001255669568,
+        "rate": 0.00004549
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": -0.001255669568,
+      "symbol": "SOLUSDT",
+      "timestamp": 1745337600000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.00282568,
+        "rate": 0.0001
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": -0.00282568,
+      "symbol": "SOLUSDT",
+      "timestamp": 1745366400000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.001023173351,
+        "rate": -0.00003559
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": 0.001023173351,
+      "symbol": "SOLUSDT",
+      "timestamp": 1745395200002
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.001764786405,
+        "rate": 0.00006137
+      },
+      "order_id": null,
+      "quantity": 0.19,
+      "quote": -0.001764786405,
+      "symbol": "SOLUSDT",
+      "timestamp": 1745424000000
+    }
+  ],
+  "schema": "round25-corrected-deterministic-trace-sample-v1",
+  "stream": "funding"
+}

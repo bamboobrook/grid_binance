@@ -1,0 +1,112 @@
+{
+  "first": {
+    "cashflow": -0.0,
+    "event": "funding_cashflow",
+    "rate": 0.0,
+    "symbol": "BNBUSDT",
+    "timestamp": 1780214400000
+  },
+  "last": {
+    "detail": "perp funding settled into shared wallet",
+    "event": "funding_cashflow",
+    "group_id": null,
+    "metadata": {
+      "cashflow": 0.0006118406280000001,
+      "rate": 0.00002671
+    },
+    "order_id": null,
+    "quantity": 0.28,
+    "quote": 0.0006118406280000001,
+    "symbol": "SOLUSDT",
+    "timestamp": 1780243200004
+  },
+  "row_count": 8,
+  "sample": [
+    {
+      "cashflow": -0.0,
+      "event": "funding_cashflow",
+      "rate": 0.0,
+      "symbol": "BNBUSDT",
+      "timestamp": 1780214400000
+    },
+    {
+      "cashflow": 0.0008432197200000001,
+      "event": "funding_cashflow",
+      "rate": 0.00003645,
+      "symbol": "SOLUSDT",
+      "timestamp": 1780214400000
+    },
+    {
+      "cashflow": -0.000024902445,
+      "event": "funding_cashflow",
+      "rate": 1.15e-6,
+      "symbol": "BNBUSDT",
+      "timestamp": 1780243200004
+    },
+    {
+      "cashflow": 0.0006118406280000001,
+      "event": "funding_cashflow",
+      "rate": 0.00002671,
+      "symbol": "SOLUSDT",
+      "timestamp": 1780243200004
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.0,
+        "rate": 0.0
+      },
+      "order_id": null,
+      "quantity": 0.03,
+      "quote": -0.0,
+      "symbol": "BNBUSDT",
+      "timestamp": 1780214400000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0008432197200000001,
+        "rate": 0.00003645
+      },
+      "order_id": null,
+      "quantity": 0.28,
+      "quote": 0.0008432197200000001,
+      "symbol": "SOLUSDT",
+      "timestamp": 1780214400000
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": -0.000024902445,
+        "rate": 1.15e-6
+      },
+      "order_id": null,
+      "quantity": 0.03,
+      "quote": -0.000024902445,
+      "symbol": "BNBUSDT",
+      "timestamp": 1780243200004
+    },
+    {
+      "detail": "perp funding settled into shared wallet",
+      "event": "funding_cashflow",
+      "group_id": null,
+      "metadata": {
+        "cashflow": 0.0006118406280000001,
+        "rate": 0.00002671
+      },
+      "order_id": null,
+      "quantity": 0.28,
+      "quote": 0.0006118406280000001,
+      "symbol": "SOLUSDT",
+      "timestamp": 1780243200004
+    }
+  ],
+  "schema": "round25-corrected-deterministic-trace-sample-v1",
+  "stream": "funding"
+}

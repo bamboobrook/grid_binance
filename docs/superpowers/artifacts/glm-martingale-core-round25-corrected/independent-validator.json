@@ -1,0 +1,2155 @@
+{
+  "final_status": "VALID_HISTORICAL_PREQUENTIAL_NO_TARGET",
+  "passed": true,
+  "policies": [
+    {
+      "label": "full-R25-C1-01",
+      "passed": true,
+      "policy_id": "R25-C1-01",
+      "recomputed": {
+        "annualized_return_pct": 0.0,
+        "blocks": [
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1688169600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1696118400000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1704067200000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1711929600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1719792000000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1727740800000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1735689600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1743465600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1751328000000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1759276800000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1767225600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1775001600000
+          }
+        ],
+        "costs": {
+          "close_fee": 0.0,
+          "close_slippage": 0.0,
+          "entry_fee": 0.0,
+          "entry_slippage": 0.0,
+          "legging": 0.0,
+          "liquidation": 0.0
+        },
+        "funding_pnl": 0.0,
+        "group_concentration_pct": 0.0,
+        "max_equity_drawdown_pct": 0.0,
+        "positive_blocks": 0,
+        "risk_path_rows": 1535040,
+        "symbol_concentration_pct": 0.0,
+        "wallet": 2000.0
+      },
+      "violations": []
+    },
+    {
+      "label": "full-R25-C1-02",
+      "passed": true,
+      "policy_id": "R25-C1-02",
+      "recomputed": {
+        "annualized_return_pct": 0.0,
+        "blocks": [
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1688169600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1696118400000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1704067200000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1711929600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1719792000000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1727740800000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1735689600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1743465600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1751328000000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1759276800000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1767225600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1775001600000
+          }
+        ],
+        "costs": {
+          "close_fee": 0.0,
+          "close_slippage": 0.0,
+          "entry_fee": 0.0,
+          "entry_slippage": 0.0,
+          "legging": 0.0,
+          "liquidation": 0.0
+        },
+        "funding_pnl": 0.0,
+        "group_concentration_pct": 0.0,
+        "max_equity_drawdown_pct": 0.0,
+        "positive_blocks": 0,
+        "risk_path_rows": 1535040,
+        "symbol_concentration_pct": 0.0,
+        "wallet": 2000.0
+      },
+      "violations": []
+    },
+    {
+      "label": "full-R25-C1-03",
+      "passed": true,
+      "policy_id": "R25-C1-03",
+      "recomputed": {
+        "annualized_return_pct": 0.0,
+        "blocks": [
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1688169600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1696118400000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1704067200000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1711929600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1719792000000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1727740800000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1735689600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1743465600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1751328000000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1759276800000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1767225600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1775001600000
+          }
+        ],
+        "costs": {
+          "close_fee": 0.0,
+          "close_slippage": 0.0,
+          "entry_fee": 0.0,
+          "entry_slippage": 0.0,
+          "legging": 0.0,
+          "liquidation": 0.0
+        },
+        "funding_pnl": 0.0,
+        "group_concentration_pct": 0.0,
+        "max_equity_drawdown_pct": 0.0,
+        "positive_blocks": 0,
+        "risk_path_rows": 1535040,
+        "symbol_concentration_pct": 0.0,
+        "wallet": 2000.0
+      },
+      "violations": []
+    },
+    {
+      "label": "full-R25-C1-04",
+      "passed": true,
+      "policy_id": "R25-C1-04",
+      "recomputed": {
+        "annualized_return_pct": 0.0,
+        "blocks": [
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1688169600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1696118400000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1704067200000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1711929600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1719792000000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1727740800000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1735689600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1743465600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1751328000000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1759276800000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1767225600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1775001600000
+          }
+        ],
+        "costs": {
+          "close_fee": 0.0,
+          "close_slippage": 0.0,
+          "entry_fee": 0.0,
+          "entry_slippage": 0.0,
+          "legging": 0.0,
+          "liquidation": 0.0
+        },
+        "funding_pnl": 0.0,
+        "group_concentration_pct": 0.0,
+        "max_equity_drawdown_pct": 0.0,
+        "positive_blocks": 0,
+        "risk_path_rows": 1535040,
+        "symbol_concentration_pct": 0.0,
+        "wallet": 2000.0
+      },
+      "violations": []
+    },
+    {
+      "label": "full-R25-C1-05",
+      "passed": true,
+      "policy_id": "R25-C1-05",
+      "recomputed": {
+        "annualized_return_pct": 0.0,
+        "blocks": [
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1688169600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1696118400000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1704067200000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1711929600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1719792000000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1727740800000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1735689600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1743465600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1751328000000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1759276800000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1767225600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1775001600000
+          }
+        ],
+        "costs": {
+          "close_fee": 0.0,
+          "close_slippage": 0.0,
+          "entry_fee": 0.0,
+          "entry_slippage": 0.0,
+          "legging": 0.0,
+          "liquidation": 0.0
+        },
+        "funding_pnl": 0.0,
+        "group_concentration_pct": 0.0,
+        "max_equity_drawdown_pct": 0.0,
+        "positive_blocks": 0,
+        "risk_path_rows": 1535040,
+        "symbol_concentration_pct": 0.0,
+        "wallet": 2000.0
+      },
+      "violations": []
+    },
+    {
+      "label": "full-R25-C1-06",
+      "passed": true,
+      "policy_id": "R25-C1-06",
+      "recomputed": {
+        "annualized_return_pct": 0.0,
+        "blocks": [
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1688169600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1696118400000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1704067200000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1711929600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1719792000000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1727740800000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1735689600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1743465600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1751328000000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1759276800000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1767225600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1775001600000
+          }
+        ],
+        "costs": {
+          "close_fee": 0.0,
+          "close_slippage": 0.0,
+          "entry_fee": 0.0,
+          "entry_slippage": 0.0,
+          "legging": 0.0,
+          "liquidation": 0.0
+        },
+        "funding_pnl": 0.0,
+        "group_concentration_pct": 0.0,
+        "max_equity_drawdown_pct": 0.0,
+        "positive_blocks": 0,
+        "risk_path_rows": 1535040,
+        "symbol_concentration_pct": 0.0,
+        "wallet": 2000.0
+      },
+      "violations": []
+    },
+    {
+      "label": "full-R25-C1-07",
+      "passed": true,
+      "policy_id": "R25-C1-07",
+      "recomputed": {
+        "annualized_return_pct": 0.0,
+        "blocks": [
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1688169600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1696118400000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1704067200000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1711929600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1719792000000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1727740800000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1735689600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1743465600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1751328000000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1759276800000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1767225600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1775001600000
+          }
+        ],
+        "costs": {
+          "close_fee": 0.0,
+          "close_slippage": 0.0,
+          "entry_fee": 0.0,
+          "entry_slippage": 0.0,
+          "legging": 0.0,
+          "liquidation": 0.0
+        },
+        "funding_pnl": 0.0,
+        "group_concentration_pct": 0.0,
+        "max_equity_drawdown_pct": 0.0,
+        "positive_blocks": 0,
+        "risk_path_rows": 1535040,
+        "symbol_concentration_pct": 0.0,
+        "wallet": 2000.0
+      },
+      "violations": []
+    },
+    {
+      "label": "full-R25-C1-08",
+      "passed": true,
+      "policy_id": "R25-C1-08",
+      "recomputed": {
+        "annualized_return_pct": 0.0,
+        "blocks": [
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1688169600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1696118400000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1704067200000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1711929600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1719792000000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1727740800000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1735689600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1743465600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1751328000000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1759276800000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1767225600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1775001600000
+          }
+        ],
+        "costs": {
+          "close_fee": 0.0,
+          "close_slippage": 0.0,
+          "entry_fee": 0.0,
+          "entry_slippage": 0.0,
+          "legging": 0.0,
+          "liquidation": 0.0
+        },
+        "funding_pnl": 0.0,
+        "group_concentration_pct": 0.0,
+        "max_equity_drawdown_pct": 0.0,
+        "positive_blocks": 0,
+        "risk_path_rows": 1535040,
+        "symbol_concentration_pct": 0.0,
+        "wallet": 2000.0
+      },
+      "violations": []
+    },
+    {
+      "label": "full-R25-C1-09",
+      "passed": true,
+      "policy_id": "R25-C1-09",
+      "recomputed": {
+        "annualized_return_pct": 0.032238888864322135,
+        "blocks": [
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1688169600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1696118400000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1704067200000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1711929600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1719792000000
+          },
+          {
+            "end_equity": 2001.8325274168392,
+            "local_drawdown_pct": 0.0831837877032375,
+            "positive": true,
+            "raw_return_pct": 0.09162637084196845,
+            "realized_pnl": 1.8537560079999966,
+            "start_equity": 2000.0,
+            "start_ms": 1727740800000
+          },
+          {
+            "end_equity": 2001.8325274168392,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2001.8325274168392,
+            "start_ms": 1735689600000
+          },
+          {
+            "end_equity": 2001.8836874448268,
+            "local_drawdown_pct": 0.15113365827153424,
+            "positive": true,
+            "raw_return_pct": 0.00255565974109917,
+            "realized_pnl": 0.01984882999999993,
+            "start_equity": 2001.8325274168392,
+            "start_ms": 1743465600000
+          },
+          {
+            "end_equity": 2001.8836874448268,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2001.8836874448268,
+            "start_ms": 1751328000000
+          },
+          {
+            "end_equity": 2001.8836874448268,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2001.8836874448268,
+            "start_ms": 1759276800000
+          },
+          {
+            "end_equity": 2001.8836874448268,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2001.8836874448268,
+            "start_ms": 1767225600000
+          },
+          {
+            "end_equity": 2001.8836874448268,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2001.8836874448268,
+            "start_ms": 1775001600000
+          }
+        ],
+        "costs": {
+          "close_fee": 0.045310108,
+          "close_slippage": 0.022655054,
+          "entry_fee": 0.039370079999999995,
+          "entry_slippage": 0.01968504,
+          "legging": 0.0,
+          "liquidation": 0.0
+        },
+        "funding_pnl": 0.0691377268269,
+        "group_concentration_pct": 98.9406074537474,
+        "max_equity_drawdown_pct": 0.15871867357977906,
+        "positive_blocks": 2,
+        "risk_path_rows": 1535040,
+        "symbol_concentration_pct": 100.0,
+        "wallet": 2001.8836874448268
+      },
+      "violations": []
+    },
+    {
+      "label": "full-R25-C1-10",
+      "passed": true,
+      "policy_id": "R25-C1-10",
+      "recomputed": {
+        "annualized_return_pct": 0.032238888864322135,
+        "blocks": [
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1688169600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1696118400000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1704067200000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1711929600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1719792000000
+          },
+          {
+            "end_equity": 2001.8325274168392,
+            "local_drawdown_pct": 0.0831837877032375,
+            "positive": true,
+            "raw_return_pct": 0.09162637084196845,
+            "realized_pnl": 1.8537560079999966,
+            "start_equity": 2000.0,
+            "start_ms": 1727740800000
+          },
+          {
+            "end_equity": 2001.8325274168392,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2001.8325274168392,
+            "start_ms": 1735689600000
+          },
+          {
+            "end_equity": 2001.8836874448268,
+            "local_drawdown_pct": 0.15113365827153424,
+            "positive": true,
+            "raw_return_pct": 0.00255565974109917,
+            "realized_pnl": 0.01984882999999993,
+            "start_equity": 2001.8325274168392,
+            "start_ms": 1743465600000
+          },
+          {
+            "end_equity": 2001.8836874448268,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2001.8836874448268,
+            "start_ms": 1751328000000
+          },
+          {
+            "end_equity": 2001.8836874448268,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2001.8836874448268,
+            "start_ms": 1759276800000
+          },
+          {
+            "end_equity": 2001.8836874448268,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2001.8836874448268,
+            "start_ms": 1767225600000
+          },
+          {
+            "end_equity": 2001.8836874448268,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2001.8836874448268,
+            "start_ms": 1775001600000
+          }
+        ],
+        "costs": {
+          "close_fee": 0.045310108,
+          "close_slippage": 0.022655054,
+          "entry_fee": 0.039370079999999995,
+          "entry_slippage": 0.01968504,
+          "legging": 0.0,
+          "liquidation": 0.0
+        },
+        "funding_pnl": 0.0691377268269,
+        "group_concentration_pct": 98.9406074537474,
+        "max_equity_drawdown_pct": 0.15871867357977906,
+        "positive_blocks": 2,
+        "risk_path_rows": 1535040,
+        "symbol_concentration_pct": 100.0,
+        "wallet": 2001.8836874448268
+      },
+      "violations": []
+    },
+    {
+      "label": "full-R25-C1-11",
+      "passed": true,
+      "policy_id": "R25-C1-11",
+      "recomputed": {
+        "annualized_return_pct": 0.06908748606011539,
+        "blocks": [
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1688169600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1696118400000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1704067200000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1711929600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1719792000000
+          },
+          {
+            "end_equity": 2002.0563100490929,
+            "local_drawdown_pct": 0.08366083083538257,
+            "positive": true,
+            "raw_return_pct": 0.102815502454634,
+            "realized_pnl": 2.0779228799999965,
+            "start_equity": 2000.0,
+            "start_ms": 1727740800000
+          },
+          {
+            "end_equity": 2002.0563100490929,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2002.0563100490929,
+            "start_ms": 1735689600000
+          },
+          {
+            "end_equity": 2004.03814412257,
+            "local_drawdown_pct": 0.048387043157523624,
+            "positive": true,
+            "raw_return_pct": 0.09898992668335715,
+            "realized_pnl": 1.9787326800000007,
+            "start_equity": 2002.0563100490929,
+            "start_ms": 1743465600000
+          },
+          {
+            "end_equity": 2004.03814412257,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2004.03814412257,
+            "start_ms": 1751328000000
+          },
+          {
+            "end_equity": 2004.03814412257,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2004.03814412257,
+            "start_ms": 1759276800000
+          },
+          {
+            "end_equity": 2004.03814412257,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2004.03814412257,
+            "start_ms": 1767225600000
+          },
+          {
+            "end_equity": 2004.03814412257,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2004.03814412257,
+            "start_ms": 1775001600000
+          }
+        ],
+        "costs": {
+          "close_fee": 0.04200296,
+          "close_slippage": 0.021001480000000003,
+          "entry_fee": 0.039459848,
+          "entry_slippage": 0.019729924000000003,
+          "legging": 0.0,
+          "liquidation": 0.0
+        },
+        "funding_pnl": 0.04067833456980001,
+        "group_concentration_pct": 51.222561276560484,
+        "max_equity_drawdown_pct": 0.08597241015251789,
+        "positive_blocks": 2,
+        "risk_path_rows": 1535040,
+        "symbol_concentration_pct": 75.65342351709022,
+        "wallet": 2004.03814412257
+      },
+      "violations": []
+    },
+    {
+      "label": "full-R25-C1-12",
+      "passed": true,
+      "policy_id": "R25-C1-12",
+      "recomputed": {
+        "annualized_return_pct": 0.06908748606011539,
+        "blocks": [
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1688169600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1696118400000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1704067200000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1711929600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1719792000000
+          },
+          {
+            "end_equity": 2002.0563100490929,
+            "local_drawdown_pct": 0.08366083083538257,
+            "positive": true,
+            "raw_return_pct": 0.102815502454634,
+            "realized_pnl": 2.0779228799999965,
+            "start_equity": 2000.0,
+            "start_ms": 1727740800000
+          },
+          {
+            "end_equity": 2002.0563100490929,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2002.0563100490929,
+            "start_ms": 1735689600000
+          },
+          {
+            "end_equity": 2004.03814412257,
+            "local_drawdown_pct": 0.048387043157523624,
+            "positive": true,
+            "raw_return_pct": 0.09898992668335715,
+            "realized_pnl": 1.9787326800000007,
+            "start_equity": 2002.0563100490929,
+            "start_ms": 1743465600000
+          },
+          {
+            "end_equity": 2004.03814412257,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2004.03814412257,
+            "start_ms": 1751328000000
+          },
+          {
+            "end_equity": 2004.03814412257,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2004.03814412257,
+            "start_ms": 1759276800000
+          },
+          {
+            "end_equity": 2004.03814412257,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2004.03814412257,
+            "start_ms": 1767225600000
+          },
+          {
+            "end_equity": 2004.03814412257,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2004.03814412257,
+            "start_ms": 1775001600000
+          }
+        ],
+        "costs": {
+          "close_fee": 0.04200296,
+          "close_slippage": 0.021001480000000003,
+          "entry_fee": 0.039459848,
+          "entry_slippage": 0.019729924000000003,
+          "legging": 0.0,
+          "liquidation": 0.0
+        },
+        "funding_pnl": 0.04067833456980001,
+        "group_concentration_pct": 51.222561276560484,
+        "max_equity_drawdown_pct": 0.08597241015251789,
+        "positive_blocks": 2,
+        "risk_path_rows": 1535040,
+        "symbol_concentration_pct": 75.65342351709022,
+        "wallet": 2004.03814412257
+      },
+      "violations": []
+    },
+    {
+      "label": "full-R25-C1-13",
+      "passed": true,
+      "policy_id": "R25-C1-13",
+      "recomputed": {
+        "annualized_return_pct": -0.012460235838507305,
+        "blocks": [
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1688169600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1696118400000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1704067200000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1711929600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1719792000000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1727740800000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1735689600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1743465600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1751328000000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1759276800000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1767225600000
+          },
+          {
+            "end_equity": 1999.300946417903,
+            "local_drawdown_pct": 0.045585932084143535,
+            "positive": false,
+            "raw_return_pct": -0.03495267910484934,
+            "realized_pnl": -0.7018736600000014,
+            "start_equity": 2000.0,
+            "start_ms": 1775001600000
+          }
+        ],
+        "costs": {
+          "close_fee": 0.017782439999999997,
+          "close_slippage": 0.008891219999999998,
+          "entry_fee": 0.018189160000000003,
+          "entry_slippage": 0.009094580000000001,
+          "legging": 0.0,
+          "liquidation": 0.0
+        },
+        "funding_pnl": 0.0014301579030000003,
+        "group_concentration_pct": 0.0,
+        "max_equity_drawdown_pct": 0.047305835497584305,
+        "positive_blocks": 0,
+        "risk_path_rows": 1535040,
+        "symbol_concentration_pct": 100.0,
+        "wallet": 1999.2722727579032
+      },
+      "violations": []
+    },
+    {
+      "label": "full-R25-C1-14",
+      "passed": true,
+      "policy_id": "R25-C1-14",
+      "recomputed": {
+        "annualized_return_pct": -0.012460235838507305,
+        "blocks": [
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1688169600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1696118400000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1704067200000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1711929600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1719792000000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1727740800000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1735689600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1743465600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1751328000000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1759276800000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1767225600000
+          },
+          {
+            "end_equity": 1999.300946417903,
+            "local_drawdown_pct": 0.045585932084143535,
+            "positive": false,
+            "raw_return_pct": -0.03495267910484934,
+            "realized_pnl": -0.7018736600000014,
+            "start_equity": 2000.0,
+            "start_ms": 1775001600000
+          }
+        ],
+        "costs": {
+          "close_fee": 0.017782439999999997,
+          "close_slippage": 0.008891219999999998,
+          "entry_fee": 0.018189160000000003,
+          "entry_slippage": 0.009094580000000001,
+          "legging": 0.0,
+          "liquidation": 0.0
+        },
+        "funding_pnl": 0.0014301579030000003,
+        "group_concentration_pct": 0.0,
+        "max_equity_drawdown_pct": 0.047305835497584305,
+        "positive_blocks": 0,
+        "risk_path_rows": 1535040,
+        "symbol_concentration_pct": 100.0,
+        "wallet": 1999.2722727579032
+      },
+      "violations": []
+    },
+    {
+      "label": "full-R25-C1-15",
+      "passed": true,
+      "policy_id": "R25-C1-15",
+      "recomputed": {
+        "annualized_return_pct": -0.0037650622227936026,
+        "blocks": [
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1688169600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1696118400000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1704067200000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1711929600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1719792000000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1727740800000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1735689600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1743465600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1751328000000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1759276800000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1767225600000
+          },
+          {
+            "end_equity": 1999.807165716362,
+            "local_drawdown_pct": 0.04584671318362756,
+            "positive": false,
+            "raw_return_pct": -0.009641714181896077,
+            "realized_pnl": -0.19537866000000087,
+            "start_equity": 2000.0,
+            "start_ms": 1775001600000
+          }
+        ],
+        "costs": {
+          "close_fee": 0.01745244,
+          "close_slippage": 0.00872622,
+          "entry_fee": 0.017617320000000002,
+          "entry_slippage": 0.008808660000000001,
+          "legging": 0.0,
+          "liquidation": 0.0
+        },
+        "funding_pnl": 0.001891696362,
+        "group_concentration_pct": 0.0,
+        "max_equity_drawdown_pct": 0.047571172403960096,
+        "positive_blocks": 0,
+        "risk_path_rows": 1535040,
+        "symbol_concentration_pct": 100.0,
+        "wallet": 1999.780087056362
+      },
+      "violations": []
+    },
+    {
+      "label": "full-R25-C1-16",
+      "passed": true,
+      "policy_id": "R25-C1-16",
+      "recomputed": {
+        "annualized_return_pct": -0.0037650622227936026,
+        "blocks": [
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1688169600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1696118400000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1704067200000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1711929600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1719792000000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1727740800000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1735689600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1743465600000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1751328000000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1759276800000
+          },
+          {
+            "end_equity": 2000.0,
+            "local_drawdown_pct": 0.0,
+            "positive": false,
+            "raw_return_pct": 0.0,
+            "realized_pnl": 0.0,
+            "start_equity": 2000.0,
+            "start_ms": 1767225600000
+          },
+          {
+            "end_equity": 1999.807165716362,
+            "local_drawdown_pct": 0.04584671318362756,
+            "positive": false,
+            "raw_return_pct": -0.009641714181896077,
+            "realized_pnl": -0.19537866000000087,
+            "start_equity": 2000.0,
+            "start_ms": 1775001600000
+          }
+        ],
+        "costs": {
+          "close_fee": 0.01745244,
+          "close_slippage": 0.00872622,
+          "entry_fee": 0.017617320000000002,
+          "entry_slippage": 0.008808660000000001,
+          "legging": 0.0,
+          "liquidation": 0.0
+        },
+        "funding_pnl": 0.001891696362,
+        "group_concentration_pct": 0.0,
+        "max_equity_drawdown_pct": 0.047571172403960096,
+        "positive_blocks": 0,
+        "risk_path_rows": 1535040,
+        "symbol_concentration_pct": 100.0,
+        "wallet": 1999.780087056362
+      },
+      "violations": []
+    }
+  ],
+  "policy_count": 16,
+  "recomputed_from_raw_traces": true,
+  "replay_summary_metric_functions_called": false,
+  "validator_version": "round25-corrected-independent-v1",
+  "violations": []
+}

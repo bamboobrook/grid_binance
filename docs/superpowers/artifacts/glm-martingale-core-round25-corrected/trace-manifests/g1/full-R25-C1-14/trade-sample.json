@@ -1,0 +1,102 @@
+{
+  "first": {
+    "event": "end_close",
+    "group_id": "R25-C1-14-full-R25-C1-14-g000001",
+    "net_after_cost": -0.7256914820970028,
+    "pair": "BNBUSDT-SOLUSDT",
+    "timestamp": 1780271999999
+  },
+  "last": {
+    "detail": "closing cost included",
+    "event": "end_close",
+    "group_id": null,
+    "metadata": {
+      "close_fee_cost": 0.00924,
+      "close_slippage_cost": 0.00462,
+      "gross_pnl": 0.17079999999999987,
+      "net_wallet_change": 0.15693999999999986,
+      "owner_group": "R25-C1-14-full-R25-C1-14-g000001"
+    },
+    "order_id": null,
+    "quantity": 0.28,
+    "quote": 0.15693999999999986,
+    "symbol": "SOLUSDT",
+    "timestamp": 1780271999999
+  },
+  "row_count": 5,
+  "sample": [
+    {
+      "event": "end_close",
+      "group_id": "R25-C1-14-full-R25-C1-14-g000001",
+      "net_after_cost": -0.7256914820970028,
+      "pair": "BNBUSDT-SOLUSDT",
+      "timestamp": 1780271999999
+    },
+    {
+      "detail": "actual fill changes account state",
+      "event": "fill",
+      "group_id": "R25-C1-14-full-R25-C1-14-g000001",
+      "metadata": {
+        "entry_fee_cost": 0.008880840000000001,
+        "entry_slippage_cost": 0.0044404200000000005,
+        "notional": 22.2021
+      },
+      "order_id": "R25-C1-14-full-R25-C1-14-g000001-L0-0",
+      "quantity": 0.03,
+      "quote": 22.2021,
+      "symbol": "BNBUSDT",
+      "timestamp": 1780196400000
+    },
+    {
+      "detail": "actual fill changes account state",
+      "event": "fill",
+      "group_id": "R25-C1-14-full-R25-C1-14-g000001",
+      "metadata": {
+        "entry_fee_cost": 0.00930832,
+        "entry_slippage_cost": 0.00465416,
+        "notional": 23.2708
+      },
+      "order_id": "R25-C1-14-full-R25-C1-14-g000001-L0-1",
+      "quantity": 0.28,
+      "quote": 23.2708,
+      "symbol": "SOLUSDT",
+      "timestamp": 1780196400000
+    },
+    {
+      "detail": "closing cost included",
+      "event": "end_close",
+      "group_id": null,
+      "metadata": {
+        "close_fee_cost": 0.008542439999999998,
+        "close_slippage_cost": 0.004271219999999999,
+        "gross_pnl": -0.8460000000000013,
+        "net_wallet_change": -0.8588136600000013,
+        "owner_group": "R25-C1-14-full-R25-C1-14-g000001"
+      },
+      "order_id": null,
+      "quantity": 0.03,
+      "quote": -0.8588136600000013,
+      "symbol": "BNBUSDT",
+      "timestamp": 1780271999999
+    },
+    {
+      "detail": "closing cost included",
+      "event": "end_close",
+      "group_id": null,
+      "metadata": {
+        "close_fee_cost": 0.00924,
+        "close_slippage_cost": 0.00462,
+        "gross_pnl": 0.17079999999999987,
+        "net_wallet_change": 0.15693999999999986,
+        "owner_group": "R25-C1-14-full-R25-C1-14-g000001"
+      },
+      "order_id": null,
+      "quantity": 0.28,
+      "quote": 0.15693999999999986,
+      "symbol": "SOLUSDT",
+      "timestamp": 1780271999999
+    }
+  ],
+  "schema": "round25-corrected-deterministic-trace-sample-v1",
+  "stream": "trade"
+}

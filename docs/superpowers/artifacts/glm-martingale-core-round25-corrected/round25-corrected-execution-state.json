@@ -1,17 +1,25 @@
 {
-  "dirty": false,
-  "phases": {
-    "G0": "pending",
-    "G1": "pending",
-    "G2": "conditional",
-    "R0": "complete",
-    "R1": "complete",
-    "R2": "complete",
-    "R3": "complete",
-    "R4": "complete"
+  "audited_commit": "f710449b7f933fe954ae5a6e936ecf0b7a1798dd",
+  "audited_upstream": "",
+  "source_tree": "4182a7daa503b1903de0073629225fbc3b9afc6c",
+  "frontier_progress": false,
+  "historical_backtest_only": true,
+  "independent_validator_passed": true,
+  "p_b_survivors": 0,
+  "phase_status": {
+    "C2": "not_applicable_no_c1_pb_parent",
+    "G0": "complete_pass",
+    "G1": "complete",
+    "G2": "not_applicable_no_committed_g1_survivor",
+    "R0": "complete_component_reserve_ledger",
+    "R1": "complete_filter_feasible_sizing",
+    "R2": "complete_corrected_reference_copula",
+    "R3": "complete_so_exit_and_one_minute_risk_path",
+    "R4": "complete_independent_raw_trace_validation"
   },
+  "provisional_replay_status": "VALID_HISTORICAL_PREQUENTIAL_NO_TARGET",
+  "return_replays_run": 16,
   "remote_sync_status": "PUSH_PENDING",
-  "source_commit": "dc62130961835d8ee2196b2938c535f6af137501",
-  "source_tree": "113c7e9b6b53845884deaf83c7c1ac04578e4e81",
-  "status": "PREFLIGHT_COMPLETE"
+  "status": "VALID_HISTORICAL_PREQUENTIAL_NO_TARGET",
+  "target_hit": false
 }

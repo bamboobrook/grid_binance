@@ -1,0 +1,322 @@
+{
+  "abort_count": 2,
+  "actual_assets": [
+    "DOGEUSDT",
+    "LINKUSDT",
+    "SOLUSDT"
+  ],
+  "annualized_return_pct": 0.06908748606011539,
+  "balance_drawdown_pct": 0.001496187599991572,
+  "btc_order_count": 0,
+  "btc_trade_count": 0,
+  "compounded_return_pct": 0.20190720612849322,
+  "decision_hash": "01a6850dad4efad98971b7d319961068e88e5871d94954bf1ba5b6cdbba9a37a",
+  "distinct_fitted_pairs": [
+    "DOGEUSDT-LINKUSDT",
+    "ETHUSDT-LINKUSDT",
+    "SOLUSDT-DOGEUSDT"
+  ],
+  "distinct_traded_pairs": [
+    "DOGEUSDT-LINKUSDT",
+    "SOLUSDT-DOGEUSDT"
+  ],
+  "eligible_alts": [
+    "ETHUSDT",
+    "BNBUSDT",
+    "SOLUSDT",
+    "XRPUSDT",
+    "DOGEUSDT",
+    "LINKUSDT"
+  ],
+  "end_ms": 1780272000000,
+  "fill_count": 4,
+  "final_equity": 2004.03814412257,
+  "final_groups": 0,
+  "final_pending": 0,
+  "final_positions": 0,
+  "final_reserved_quote": -0.0,
+  "fit_hash": "fcf8bc73a5287c9ff1c4bdbeebd8e98ecb0c1c65180ca0aa397333afea727d9f",
+  "fitted_pair_count": 3,
+  "fo_signal_count": 2,
+  "immediate_fail_reasons": [
+    "actual_assets_below_6",
+    "distinct_traded_pairs_below_3",
+    "loss_after_add_so_groups_below_2",
+    "positive_blocks_below_8",
+    "symbol_positive_contribution_above_50pct",
+    "group_positive_contribution_above_50pct",
+    "block_positive_contribution_above_50pct"
+  ],
+  "label": "full-R25-C1-11",
+  "loss_after_add_so_groups": 0,
+  "max_equity_drawdown_pct": 0.08597241015251789,
+  "metrics": {
+    "actual_signed_legs": [
+      {
+        "group_id": "R25-C1-11-full-R25-C1-11-g000001",
+        "position_mode": "long",
+        "resolved_gross": 24.89532,
+        "rounded_price": 0.10919000000000001,
+        "rounded_quantity": 228.0,
+        "symbol": "DOGEUSDT",
+        "timestamp": 1728471600000
+      },
+      {
+        "group_id": "R25-C1-11-full-R25-C1-11-g000001",
+        "position_mode": "short",
+        "resolved_gross": 24.977600000000002,
+        "rounded_price": 10.72,
+        "rounded_quantity": 2.33,
+        "symbol": "LINKUSDT",
+        "timestamp": 1728471600000
+      },
+      {
+        "group_id": "R25-C1-11-full-R25-C1-11-g000002",
+        "position_mode": "long",
+        "resolved_gross": 23.9112,
+        "rounded_price": 132.84,
+        "rounded_quantity": 0.18,
+        "symbol": "SOLUSDT",
+        "timestamp": 1744610400000
+      },
+      {
+        "group_id": "R25-C1-11-full-R25-C1-11-g000002",
+        "position_mode": "short",
+        "resolved_gross": 24.8655,
+        "rounded_price": 0.16577,
+        "rounded_quantity": 150.0,
+        "symbol": "DOGEUSDT",
+        "timestamp": 1744610400000
+      }
+    ],
+    "annualized_return_pct": 0.06908748606011539,
+    "balance_drawdown_pct": 0.001496187599991572,
+    "blocks": [
+      {
+        "end": "2023-09-30",
+        "end_equity": 2000.0,
+        "gross_loss": 0.0,
+        "gross_profit": 0.0,
+        "local_drawdown_pct": 0.0,
+        "positive": false,
+        "profit_factor": 0.0,
+        "raw_return_pct": 0.0,
+        "start": "2023-07-01",
+        "start_equity": 2000.0
+      },
+      {
+        "end": "2023-12-31",
+        "end_equity": 2000.0,
+        "gross_loss": 0.0,
+        "gross_profit": 0.0,
+        "local_drawdown_pct": 0.0,
+        "positive": false,
+        "profit_factor": 0.0,
+        "raw_return_pct": 0.0,
+        "start": "2023-10-01",
+        "start_equity": 2000.0
+      },
+      {
+        "end": "2024-03-31",
+        "end_equity": 2000.0,
+        "gross_loss": 0.0,
+        "gross_profit": 0.0,
+        "local_drawdown_pct": 0.0,
+        "positive": false,
+        "profit_factor": 0.0,
+        "raw_return_pct": 0.0,
+        "start": "2024-01-01",
+        "start_equity": 2000.0
+      },
+      {
+        "end": "2024-06-30",
+        "end_equity": 2000.0,
+        "gross_loss": 0.0,
+        "gross_profit": 0.0,
+        "local_drawdown_pct": 0.0,
+        "positive": false,
+        "profit_factor": 0.0,
+        "raw_return_pct": 0.0,
+        "start": "2024-04-01",
+        "start_equity": 2000.0
+      },
+      {
+        "end": "2024-09-30",
+        "end_equity": 2000.0,
+        "gross_loss": 0.0,
+        "gross_profit": 0.0,
+        "local_drawdown_pct": 0.0,
+        "positive": false,
+        "profit_factor": 0.0,
+        "raw_return_pct": 0.0,
+        "start": "2024-07-01",
+        "start_equity": 2000.0
+      },
+      {
+        "end": "2024-12-31",
+        "end_equity": 2002.0563100490926,
+        "gross_loss": 0.0,
+        "gross_profit": 2.0563100490917963,
+        "local_drawdown_pct": 0.08366083083538257,
+        "positive": true,
+        "profit_factor": 1000000.0,
+        "raw_return_pct": 0.102815502454634,
+        "start": "2024-10-01",
+        "start_equity": 2000.0
+      },
+      {
+        "end": "2025-03-31",
+        "end_equity": 2002.0563100490926,
+        "gross_loss": 0.0,
+        "gross_profit": 0.0,
+        "local_drawdown_pct": 0.0,
+        "positive": false,
+        "profit_factor": 0.0,
+        "raw_return_pct": 0.0,
+        "start": "2025-01-01",
+        "start_equity": 2002.0563100490926
+      },
+      {
+        "end": "2025-06-30",
+        "end_equity": 2004.03814412257,
+        "gross_loss": 0.0,
+        "gross_profit": 1.9818340734780007,
+        "local_drawdown_pct": 0.048387043157534955,
+        "positive": true,
+        "profit_factor": 1000000.0,
+        "raw_return_pct": 0.09898992668335715,
+        "start": "2025-04-01",
+        "start_equity": 2002.0563100490926
+      },
+      {
+        "end": "2025-09-30",
+        "end_equity": 2004.03814412257,
+        "gross_loss": 0.0,
+        "gross_profit": 0.0,
+        "local_drawdown_pct": 0.0,
+        "positive": false,
+        "profit_factor": 0.0,
+        "raw_return_pct": 0.0,
+        "start": "2025-07-01",
+        "start_equity": 2004.03814412257
+      },
+      {
+        "end": "2025-12-31",
+        "end_equity": 2004.03814412257,
+        "gross_loss": 0.0,
+        "gross_profit": 0.0,
+        "local_drawdown_pct": 0.0,
+        "positive": false,
+        "profit_factor": 0.0,
+        "raw_return_pct": 0.0,
+        "start": "2025-10-01",
+        "start_equity": 2004.03814412257
+      },
+      {
+        "end": "2026-03-31",
+        "end_equity": 2004.03814412257,
+        "gross_loss": 0.0,
+        "gross_profit": 0.0,
+        "local_drawdown_pct": 0.0,
+        "positive": false,
+        "profit_factor": 0.0,
+        "raw_return_pct": 0.0,
+        "start": "2026-01-01",
+        "start_equity": 2004.03814412257
+      },
+      {
+        "end": "2026-05-31",
+        "end_equity": 2004.03814412257,
+        "gross_loss": 0.0,
+        "gross_profit": 0.0,
+        "local_drawdown_pct": 0.0,
+        "positive": false,
+        "profit_factor": 0.0,
+        "raw_return_pct": 0.0,
+        "start": "2026-04-01",
+        "start_equity": 2004.03814412257
+      }
+    ],
+    "calmar": 0.8036006660456757,
+    "compounded_return_pct": 0.20190720612849322,
+    "contribution": {
+      "block_max_positive_pct": 50.94783767404518,
+      "group": {
+        "R25-C1-11-full-R25-C1-11-g000001": 2.0779228799999965,
+        "R25-C1-11-full-R25-C1-11-g000002": 1.9787326800000007
+      },
+      "group_max_positive_pct": 51.222561276560484,
+      "symbol": {
+        "DOGEUSDT": 4.371425375999994,
+        "LINKUSDT": -1.7215698959999983,
+        "SOLUSDT": 1.4068000800000011
+      },
+      "symbol_max_positive_pct": 75.65342351709022
+    },
+    "cost_to_gross_profit_pct": 2.0831287047691687,
+    "costs": {
+      "close_fee_cost": 0.042002960000000006,
+      "close_slippage_cost": 0.021001480000000003,
+      "entry_fee_cost": 0.039459848000000006,
+      "entry_slippage_cost": 0.019729924000000003,
+      "funding_pnl": 0.04067833456980001,
+      "gross_realized_loss": 1.7055599999999984,
+      "gross_realized_profit": 5.8252199999999945,
+      "legging_cost": 0.0,
+      "liquidation_cost": 0.0
+    },
+    "counts": {
+      "dynamic_freeze": 0,
+      "legging": 0,
+      "liquidation": 0,
+      "order_submit": 4,
+      "partial_fill": 0,
+      "rejection": 0
+    },
+    "days": 1066.0,
+    "ddr": 2.3485116419360956,
+    "end_ms": 1780272000000,
+    "equity_drawdown_pct": 0.08597241015251789,
+    "final_equity": 2004.03814412257,
+    "final_state": {
+      "groups": 0,
+      "pending": 0,
+      "positions": 0,
+      "reserved_quote": -0.0
+    },
+    "final_wallet": 2004.03814412257,
+    "gross_profit": 5.865898334569795,
+    "positive_blocks": 2,
+    "principal": 2000.0,
+    "risk": {
+      "final_reserve_components": {},
+      "peak_effective_leverage": 0.027812092029275856,
+      "peak_gross": 55.70291,
+      "peak_maintenance": 1.3925727500000002,
+      "peak_reserved_quote": 32.93
+    },
+    "sharpe": 0.8927406615229754,
+    "sortino": 0.3567843743475513,
+    "start_ms": 1688169600000,
+    "tail_loss_pct": 0.0016774470881347862
+  },
+  "mode": "full",
+  "order_hash": "df77f306ceb96a009b527f2bde0a4de540396f1a96ec0158c7092a7d799d089a",
+  "order_submit_count": 4,
+  "p_a": true,
+  "p_b": false,
+  "policy_id": "R25-C1-11",
+  "positive_blocks": 2,
+  "rejection_count": 0,
+  "rejection_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "risk_path_first_ms": 1688169600000,
+  "risk_path_last_ms": 1780271940000,
+  "risk_path_rows": 1535040,
+  "so_decision_count": 338,
+  "so_decision_true_count": 0,
+  "so_fill_count": 0,
+  "so_guard_call_path_hash": "950b69c35b4386005bcfa965bfe48336a45c2a88c9d4ef516ca1d66ffa1a89e6",
+  "start_ms": 1688169600000,
+  "streams": {},
+  "tp_count": 0
+}

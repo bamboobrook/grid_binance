@@ -1,0 +1,75 @@
+{
+  "data_hashes": {
+    "exchange_info_sha256": "0320b9b72fe178b71505e344b092c4db0a98554529061f2138c562be24b5098d",
+    "manifest_sha256": "346494fd70ca51b33dbfa997a906a2fb573bb2b437c869b7fcc9df051c100741"
+  },
+  "policy_hash": "f9c42220b929f51ba17c08ffe1a2ebd9949d539e1d2137f83e458f4760c1fe9f",
+  "source_commit": "f710449b7f933fe954ae5a6e936ecf0b7a1798dd",
+  "source_tree": "4182a7daa503b1903de0073629225fbc3b9afc6c",
+  "streams": {
+    "equity": {
+      "bytes": 7466102,
+      "raw_path": "artifacts-local/round25-corrected/f710449b7f933fe954ae5a6e936ecf0b7a1798dd/g1/full-R25-C1-10/equity.jsonl",
+      "rows": 40652,
+      "sample_path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/trace-manifests/g1/full-R25-C1-10/equity-sample.json",
+      "schema": "jsonl/round25-corrected-trace-v1",
+      "sha256": "dc8ef63caddb0847c4fab95fd2eae0cd7349259c0a45c0df6452e8731d2e4af8"
+    },
+    "event": {
+      "bytes": 402501127,
+      "raw_path": "artifacts-local/round25-corrected/f710449b7f933fe954ae5a6e936ecf0b7a1798dd/g1/full-R25-C1-10/event.jsonl",
+      "rows": 1535391,
+      "sample_path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/trace-manifests/g1/full-R25-C1-10/event-sample.json",
+      "schema": "jsonl/round25-corrected-trace-v1",
+      "sha256": "83c19b89af5dbd0897c713b88b8963d3895ffe0ef4841d5862bb9a84f8e606e7"
+    },
+    "funding": {
+      "bytes": 31584,
+      "raw_path": "artifacts-local/round25-corrected/f710449b7f933fe954ae5a6e936ecf0b7a1798dd/g1/full-R25-C1-10/funding.jsonl",
+      "rows": 168,
+      "sample_path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/trace-manifests/g1/full-R25-C1-10/funding-sample.json",
+      "schema": "jsonl/round25-corrected-trace-v1",
+      "sha256": "f8c3917b2bdae06e6d991e751eac63876460c2ca5718b24272cd1b02f1ae19d7"
+    },
+    "margin": {
+      "bytes": 7612876,
+      "raw_path": "artifacts-local/round25-corrected/f710449b7f933fe954ae5a6e936ecf0b7a1798dd/g1/full-R25-C1-10/margin.jsonl",
+      "rows": 40564,
+      "sample_path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/trace-manifests/g1/full-R25-C1-10/margin-sample.json",
+      "schema": "jsonl/round25-corrected-trace-v1",
+      "sha256": "7c62ef79a5fb9b2166679d07c31f0321aa33d6ef2826d23f9142b3026f953805"
+    },
+    "order": {
+      "bytes": 3076,
+      "raw_path": "artifacts-local/round25-corrected/f710449b7f933fe954ae5a6e936ecf0b7a1798dd/g1/full-R25-C1-10/order.jsonl",
+      "rows": 8,
+      "sample_path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/trace-manifests/g1/full-R25-C1-10/order-sample.json",
+      "schema": "jsonl/round25-corrected-trace-v1",
+      "sha256": "8ad81651c2ebce03a6c391160a7d2f3be42a4295a1a6269541a5f9b2ccb57637"
+    },
+    "rejection": {
+      "bytes": 0,
+      "raw_path": "artifacts-local/round25-corrected/f710449b7f933fe954ae5a6e936ecf0b7a1798dd/g1/full-R25-C1-10/rejection.jsonl",
+      "rows": 0,
+      "sample_path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/trace-manifests/g1/full-R25-C1-10/rejection-sample.json",
+      "schema": "jsonl/round25-corrected-trace-v1",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "signal": {
+      "bytes": 2060489,
+      "raw_path": "artifacts-local/round25-corrected/f710449b7f933fe954ae5a6e936ecf0b7a1798dd/g1/full-R25-C1-10/signal.jsonl",
+      "rows": 6240,
+      "sample_path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/trace-manifests/g1/full-R25-C1-10/signal-sample.json",
+      "schema": "jsonl/round25-corrected-trace-v1",
+      "sha256": "f944b0bcb878ba53d2e5a4ce80e0433fe5b015bff1ce7fed42b078e55b42ebcf"
+    },
+    "trade": {
+      "bytes": 3279,
+      "raw_path": "artifacts-local/round25-corrected/f710449b7f933fe954ae5a6e936ecf0b7a1798dd/g1/full-R25-C1-10/trade.jsonl",
+      "rows": 10,
+      "sample_path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/trace-manifests/g1/full-R25-C1-10/trade-sample.json",
+      "schema": "jsonl/round25-corrected-trace-v1",
+      "sha256": "44d19348ecdc0bbbac4b67e0d80999931d44027ef0949666148db77267377463"
+    }
+  }
+}

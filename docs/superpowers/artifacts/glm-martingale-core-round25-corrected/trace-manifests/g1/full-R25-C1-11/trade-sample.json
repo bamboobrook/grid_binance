@@ -1,0 +1,173 @@
+{
+  "first": {
+    "event": "abort",
+    "group_id": "R25-C1-11-full-R25-C1-11-g000001",
+    "net_after_cost": 2.0563100490917963,
+    "pair": "DOGEUSDT-LINKUSDT",
+    "timestamp": 1729080000000
+  },
+  "last": {
+    "detail": "closing cost included",
+    "event": "abort",
+    "group_id": null,
+    "metadata": {
+      "close_fee_cost": 0.0097116,
+      "close_slippage_cost": 0.0048558,
+      "gross_pnl": 0.5864999999999996,
+      "net_wallet_change": 0.5719325999999996,
+      "owner_group": "R25-C1-11-full-R25-C1-11-g000002"
+    },
+    "order_id": null,
+    "quantity": 150.0,
+    "quote": 0.5719325999999996,
+    "symbol": "DOGEUSDT",
+    "timestamp": 1745218800000
+  },
+  "row_count": 10,
+  "sample": [
+    {
+      "event": "abort",
+      "group_id": "R25-C1-11-full-R25-C1-11-g000001",
+      "net_after_cost": 2.0563100490917963,
+      "pair": "DOGEUSDT-LINKUSDT",
+      "timestamp": 1729080000000
+    },
+    {
+      "event": "abort",
+      "group_id": "R25-C1-11-full-R25-C1-11-g000002",
+      "net_after_cost": 1.9818340734780007,
+      "pair": "SOLUSDT-DOGEUSDT",
+      "timestamp": 1745218800000
+    },
+    {
+      "detail": "actual fill changes account state",
+      "event": "fill",
+      "group_id": "R25-C1-11-full-R25-C1-11-g000001",
+      "metadata": {
+        "entry_fee_cost": 0.009958128,
+        "entry_slippage_cost": 0.004979064,
+        "notional": 24.89532
+      },
+      "order_id": "R25-C1-11-full-R25-C1-11-g000001-L0-0",
+      "quantity": 228.0,
+      "quote": 24.89532,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1728471600000
+    },
+    {
+      "detail": "actual fill changes account state",
+      "event": "fill",
+      "group_id": "R25-C1-11-full-R25-C1-11-g000001",
+      "metadata": {
+        "entry_fee_cost": 0.009991040000000001,
+        "entry_slippage_cost": 0.004995520000000001,
+        "notional": 24.977600000000002
+      },
+      "order_id": "R25-C1-11-full-R25-C1-11-g000001-L0-1",
+      "quantity": 2.33,
+      "quote": 24.977600000000002,
+      "symbol": "LINKUSDT",
+      "timestamp": 1728471600000
+    },
+    {
+      "detail": "closing cost included",
+      "event": "abort",
+      "group_id": null,
+      "metadata": {
+        "close_fee_cost": 0.011484816,
+        "close_slippage_cost": 0.005742408,
+        "gross_pnl": 3.816719999999995,
+        "net_wallet_change": 3.799492775999995,
+        "owner_group": "R25-C1-11-full-R25-C1-11-g000001"
+      },
+      "order_id": null,
+      "quantity": 228.0,
+      "quote": 3.799492775999995,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1729080000000
+    },
+    {
+      "detail": "closing cost included",
+      "event": "abort",
+      "group_id": null,
+      "metadata": {
+        "close_fee_cost": 0.010673264,
+        "close_slippage_cost": 0.005336632,
+        "gross_pnl": -1.7055599999999984,
+        "net_wallet_change": -1.7215698959999983,
+        "owner_group": "R25-C1-11-full-R25-C1-11-g000001"
+      },
+      "order_id": null,
+      "quantity": 2.33,
+      "quote": -1.7215698959999983,
+      "symbol": "LINKUSDT",
+      "timestamp": 1729080000000
+    },
+    {
+      "detail": "actual fill changes account state",
+      "event": "fill",
+      "group_id": "R25-C1-11-full-R25-C1-11-g000002",
+      "metadata": {
+        "entry_fee_cost": 0.00956448,
+        "entry_slippage_cost": 0.00478224,
+        "notional": 23.9112
+      },
+      "order_id": "R25-C1-11-full-R25-C1-11-g000002-L0-0",
+      "quantity": 0.18,
+      "quote": 23.9112,
+      "symbol": "SOLUSDT",
+      "timestamp": 1744610400000
+    },
+    {
+      "detail": "actual fill changes account state",
+      "event": "fill",
+      "group_id": "R25-C1-11-full-R25-C1-11-g000002",
+      "metadata": {
+        "entry_fee_cost": 0.0099462,
+        "entry_slippage_cost": 0.0049731,
+        "notional": 24.8655
+      },
+      "order_id": "R25-C1-11-full-R25-C1-11-g000002-L0-1",
+      "quantity": 150.0,
+      "quote": 24.8655,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1744610400000
+    },
+    {
+      "detail": "closing cost included",
+      "event": "abort",
+      "group_id": null,
+      "metadata": {
+        "close_fee_cost": 0.010133280000000001,
+        "close_slippage_cost": 0.005066640000000001,
+        "gross_pnl": 1.422000000000001,
+        "net_wallet_change": 1.4068000800000011,
+        "owner_group": "R25-C1-11-full-R25-C1-11-g000002"
+      },
+      "order_id": null,
+      "quantity": 0.18,
+      "quote": 1.4068000800000011,
+      "symbol": "SOLUSDT",
+      "timestamp": 1745218800000
+    },
+    {
+      "detail": "closing cost included",
+      "event": "abort",
+      "group_id": null,
+      "metadata": {
+        "close_fee_cost": 0.0097116,
+        "close_slippage_cost": 0.0048558,
+        "gross_pnl": 0.5864999999999996,
+        "net_wallet_change": 0.5719325999999996,
+        "owner_group": "R25-C1-11-full-R25-C1-11-g000002"
+      },
+      "order_id": null,
+      "quantity": 150.0,
+      "quote": 0.5719325999999996,
+      "symbol": "DOGEUSDT",
+      "timestamp": 1745218800000
+    }
+  ],
+  "schema": "round25-corrected-deterministic-trace-sample-v1",
+  "stream": "trade"
+}
