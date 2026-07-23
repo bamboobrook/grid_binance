@@ -1375,25 +1375,41 @@ fn fill_layer(
     streams: &mut BTreeMap<String, Vec<serde_json::Value>>,
     counts: &mut BTreeMap<&'static str, u64>,
 ) -> Result<bool> {
-    let legs = [
-        (&group.left_key, &group.left.alt),
-        (&group.right_key, &group.right.alt),
-    ];
-    let mut resolved = Vec::new();
-    for (key, symbol) in legs {
-        let price = *prices.get(symbol).context("missing fill price")?;
-        let filter = filters
-            .filters
-            .get(symbol)
-            .with_context(|| format!("missing filter for {symbol}"))?;
-        let raw_qty = gross * 0.5 / price;
-        let order = filter.resolve_for_mode(raw_qty, price, key.mode);
-        resolved.push((key.clone(), symbol.clone(), order));
-    }
-    let left = resolved[0].2;
-    let right = resolved[1].2;
+    let left_price = *prices
+        .get(&group.left.alt)
+        .context("missing left fill price")?;
+    let right_price = *prices
+        .get(&group.right.alt)
+        .context("missing right fill price")?;
+    let left_filter = *filters
+        .filters
+        .get(&group.left.alt)
+        .context("missing left filter")?;
+    let right_filter = *filters
+        .filters
+        .get(&group.right.alt)
+        .context("missing right filter")?;
+    let feasible = crate::r25::resolve_filter_feasible_pair(
+        left_filter,
+        left_price,
+        group.left_key.mode,
+        right_filter,
+        right_price,
+        group.right_key.mode,
+        gross,
+    );
+    let (left, right) = feasible.unwrap_or_else(|| {
+        (
+            left_filter.resolve_for_mode(gross * 0.5 / left_price, left_price, group.left_key.mode),
+            right_filter.resolve_for_mode(
+                gross * 0.5 / right_price,
+                right_price,
+                group.right_key.mode,
+            ),
+        )
+    });
     let resolved_total = left.gross + right.gross;
-    if !crate::r25::atomic_pair_admission(left, right) || resolved_total > gross * 1.01 {
+    if feasible.is_none() {
         *counts.entry("rejection").or_default() += 1;
         push(
             streams,
@@ -1408,6 +1424,10 @@ fn fill_layer(
         );
         return Ok(false);
     }
+    let resolved = vec![
+        (group.left_key.clone(), group.left.alt.clone(), left),
+        (group.right_key.clone(), group.right.alt.clone(), right),
+    ];
     let mut filled = Vec::new();
     for (leg_index, (key, symbol, order)) in resolved.into_iter().enumerate() {
         let order_id = format!("{}-L{level}-{leg_index}", group.id);

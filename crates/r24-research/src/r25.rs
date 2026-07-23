@@ -202,6 +202,52 @@ pub fn atomic_pair_admission(left: R25ResolvedOrder, right: R25ResolvedOrder) ->
     left.accepted && right.accepted && gross_mismatch_pct(left.gross, right.gross) <= 5.0
 }
 
+#[allow(clippy::too_many_arguments)]
+pub fn resolve_filter_feasible_pair(
+    left_filter: R25Filter,
+    left_price: f64,
+    left_mode: r24_engine::PositionMode,
+    right_filter: R25Filter,
+    right_price: f64,
+    right_mode: r24_engine::PositionMode,
+    group_gross_cap: f64,
+) -> Option<(R25ResolvedOrder, R25ResolvedOrder)> {
+    let left_start =
+        left_filter.resolve_for_mode(group_gross_cap * 0.5 / left_price, left_price, left_mode);
+    let right_start =
+        right_filter.resolve_for_mode(group_gross_cap * 0.5 / right_price, right_price, right_mode);
+    let mut best = None;
+    for left_steps in 0..=64 {
+        let left_qty = left_start.rounded_qty - left_steps as f64 * left_filter.step_size;
+        if left_qty < left_filter.min_qty {
+            break;
+        }
+        let left = left_filter.resolve_for_mode(left_qty, left_price, left_mode);
+        for right_steps in 0..=64 {
+            let right_qty = right_start.rounded_qty - right_steps as f64 * right_filter.step_size;
+            if right_qty < right_filter.min_qty {
+                break;
+            }
+            let right = right_filter.resolve_for_mode(right_qty, right_price, right_mode);
+            let total = left.gross + right.gross;
+            if total <= group_gross_cap * 1.01 && atomic_pair_admission(left, right) {
+                let replace = best
+                    .as_ref()
+                    .map(
+                        |(best_left, best_right): &(R25ResolvedOrder, R25ResolvedOrder)| {
+                            total > best_left.gross + best_right.gross
+                        },
+                    )
+                    .unwrap_or(true);
+                if replace {
+                    best = Some((left, right));
+                }
+            }
+        }
+    }
+    best
+}
+
 pub fn gross_mismatch_pct(left: f64, right: f64) -> f64 {
     let denominator = ((left + right) * 0.5).abs().max(1e-12);
     (left - right).abs() / denominator * 100.0

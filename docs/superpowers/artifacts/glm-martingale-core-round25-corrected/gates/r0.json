@@ -1,15 +1,15 @@
 {
   "artifact_root": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected",
   "dirty": false,
-  "git_commit": "541b688e30ba1b4321e7f74eff778d9a4dfa280f",
+  "git_commit": "4ede7298d2a417f5b51e36df657b9322491bbe69",
   "old_artifact_read_only": [
     "docs/superpowers/artifacts/glm-martingale-core-round25",
     "docs/superpowers/artifacts/glm-martingale-core-round25-recovery"
   ],
   "passed": true,
   "phase": "R0",
-  "raw_root": "artifacts-local/round25-corrected/541b688e30ba1b4321e7f74eff778d9a4dfa280f",
+  "raw_root": "artifacts-local/round25-corrected/4ede7298d2a417f5b51e36df657b9322491bbe69",
   "remote_sync_status": "PUSH_PENDING",
-  "source_tree": "fbad4fc3d04aec61c0f534d11c2636c27b488a19",
+  "source_tree": "ec51f0bee3cd5cef6c0f75fb21c7ca13b4be3913",
   "upstream_commit": ""
 }

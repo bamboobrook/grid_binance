@@ -1,0 +1,81 @@
+{
+  "first": {
+    "detail": "group_after_fill",
+    "event": "reserve",
+    "group_id": "R25-C1-16-bull-R25-C1-16-g000001",
+    "metadata": {
+      "components": {
+        "hedge_or_flatten": 0.0,
+        "maintenance_buffer": 1.5625,
+        "next_so_entry_cost": 0.0375,
+        "next_so_initial_margin": 31.25,
+        "open_close_cost": 0.08,
+        "pending_leg": 0.0
+      },
+      "owner": "R25-C1-16-bull-R25-C1-16-g000001",
+      "reserved_quote_after": 32.93
+    },
+    "order_id": null,
+    "quantity": null,
+    "quote": 32.93,
+    "symbol": null,
+    "timestamp": 1707948000000
+  },
+  "last": {
+    "detail": "group_release",
+    "event": "reserve_released",
+    "group_id": "R25-C1-16-bull-R25-C1-16-g000001",
+    "metadata": {
+      "owner": "R25-C1-16-bull-R25-C1-16-g000001",
+      "released": 32.93,
+      "reserved_quote_after": -0.0
+    },
+    "order_id": null,
+    "quantity": null,
+    "quote": 32.93,
+    "symbol": null,
+    "timestamp": 1707948000000
+  },
+  "row_count": 2,
+  "sample": [
+    {
+      "detail": "group_after_fill",
+      "event": "reserve",
+      "group_id": "R25-C1-16-bull-R25-C1-16-g000001",
+      "metadata": {
+        "components": {
+          "hedge_or_flatten": 0.0,
+          "maintenance_buffer": 1.5625,
+          "next_so_entry_cost": 0.0375,
+          "next_so_initial_margin": 31.25,
+          "open_close_cost": 0.08,
+          "pending_leg": 0.0
+        },
+        "owner": "R25-C1-16-bull-R25-C1-16-g000001",
+        "reserved_quote_after": 32.93
+      },
+      "order_id": null,
+      "quantity": null,
+      "quote": 32.93,
+      "symbol": null,
+      "timestamp": 1707948000000
+    },
+    {
+      "detail": "group_release",
+      "event": "reserve_released",
+      "group_id": "R25-C1-16-bull-R25-C1-16-g000001",
+      "metadata": {
+        "owner": "R25-C1-16-bull-R25-C1-16-g000001",
+        "released": 32.93,
+        "reserved_quote_after": -0.0
+      },
+      "order_id": null,
+      "quantity": null,
+      "quote": 32.93,
+      "symbol": null,
+      "timestamp": 1707948000000
+    }
+  ],
+  "schema": "round25-corrected-deterministic-trace-sample-v1",
+  "stream": "margin"
+}

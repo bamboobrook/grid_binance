@@ -258,12 +258,15 @@ fn run_preflight(context: &RunContext, force: bool) -> Result<()> {
             "raw_root":context.raw_root.strip_prefix(&context.repo)?.to_string_lossy()
         }),
     )?;
-    fs::copy(
-        context.repo.join("docs/superpowers/artifacts/glm-martingale-core-round25-recovery/audit/round25-corrected-failure-ledger.jsonl"),
-        context
-            .artifact
-            .join("round25-corrected-failure-ledger.jsonl"),
-    )?;
+    let failure_ledger = context
+        .artifact
+        .join("round25-corrected-failure-ledger.jsonl");
+    if !failure_ledger.exists() {
+        fs::copy(
+            context.repo.join("docs/superpowers/artifacts/glm-martingale-core-round25-recovery/audit/round25-corrected-failure-ledger.jsonl"),
+            failure_ledger,
+        )?;
+    }
     write_json(
         context
             .artifact

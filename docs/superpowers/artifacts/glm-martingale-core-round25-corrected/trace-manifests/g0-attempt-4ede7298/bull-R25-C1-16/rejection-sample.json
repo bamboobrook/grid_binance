@@ -1,0 +1,85 @@
+{
+  "first": {
+    "event": "atomic_filter_reject",
+    "filter_version": "round24-current-perp-exchangeInfo-8-symbols",
+    "group_gross_cap": 50.5,
+    "group_id": "R25-C1-16-bull-R25-C1-16-g000001",
+    "left": {
+      "accepted": true,
+      "gross": 22.24088,
+      "raw_price": 2780.11,
+      "raw_qty": 0.00899244993903119,
+      "rounded_price": 2780.11,
+      "rounded_qty": 0.008
+    },
+    "level": 0,
+    "reason": "min_notional_or_pair_gross_mismatch",
+    "resolved_total_gross": 46.81718,
+    "right": {
+      "accepted": true,
+      "gross": 24.5763,
+      "raw_price": 117.036,
+      "raw_qty": 0.21360948767900476,
+      "rounded_price": 117.03,
+      "rounded_qty": 0.21
+    },
+    "timestamp": 1707948000000
+  },
+  "last": {
+    "event": "atomic_filter_reject",
+    "filter_version": "round24-current-perp-exchangeInfo-8-symbols",
+    "group_gross_cap": 50.5,
+    "group_id": "R25-C1-16-bull-R25-C1-16-g000001",
+    "left": {
+      "accepted": true,
+      "gross": 22.24088,
+      "raw_price": 2780.11,
+      "raw_qty": 0.00899244993903119,
+      "rounded_price": 2780.11,
+      "rounded_qty": 0.008
+    },
+    "level": 0,
+    "reason": "min_notional_or_pair_gross_mismatch",
+    "resolved_total_gross": 46.81718,
+    "right": {
+      "accepted": true,
+      "gross": 24.5763,
+      "raw_price": 117.036,
+      "raw_qty": 0.21360948767900476,
+      "rounded_price": 117.03,
+      "rounded_qty": 0.21
+    },
+    "timestamp": 1707948000000
+  },
+  "row_count": 1,
+  "sample": [
+    {
+      "event": "atomic_filter_reject",
+      "filter_version": "round24-current-perp-exchangeInfo-8-symbols",
+      "group_gross_cap": 50.5,
+      "group_id": "R25-C1-16-bull-R25-C1-16-g000001",
+      "left": {
+        "accepted": true,
+        "gross": 22.24088,
+        "raw_price": 2780.11,
+        "raw_qty": 0.00899244993903119,
+        "rounded_price": 2780.11,
+        "rounded_qty": 0.008
+      },
+      "level": 0,
+      "reason": "min_notional_or_pair_gross_mismatch",
+      "resolved_total_gross": 46.81718,
+      "right": {
+        "accepted": true,
+        "gross": 24.5763,
+        "raw_price": 117.036,
+        "raw_qty": 0.21360948767900476,
+        "rounded_price": 117.03,
+        "rounded_qty": 0.21
+      },
+      "timestamp": 1707948000000
+    }
+  ],
+  "schema": "round25-corrected-deterministic-trace-sample-v1",
+  "stream": "rejection"
+}

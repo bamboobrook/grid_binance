@@ -845,4 +845,32 @@ mod tests {
             atomic_pair_admission(left, right)
         }));
     }
+
+    #[test]
+    fn coarse_eth_step_is_rebalanced_against_sol_within_five_percent() {
+        let eth = R25Filter {
+            tick_size: 0.01,
+            step_size: 0.001,
+            min_qty: 0.001,
+            min_notional: 20.0,
+        };
+        let sol = R25Filter {
+            tick_size: 0.001,
+            step_size: 0.01,
+            min_qty: 0.01,
+            min_notional: 5.0,
+        };
+        let (left, right) = crate::r25::resolve_filter_feasible_pair(
+            eth,
+            2780.11,
+            PositionMode::Long,
+            sol,
+            117.036,
+            PositionMode::Short,
+            50.0,
+        )
+        .unwrap();
+        assert!(atomic_pair_admission(left, right));
+        assert!(left.gross + right.gross <= 50.5);
+    }
 }

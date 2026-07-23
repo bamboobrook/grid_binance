@@ -2,7 +2,7 @@
   "scan": [
     {
       "btc_order_count": 0,
-      "decision_hash": "7aede9d7a7bdbf302cd43ea4cde8749a28d48c6ce32b63f6fab8bb6f43494566",
+      "decision_hash": "6f7a9c3cadb3e790d1e4b14cf84ed1e43d35b05c311604a51d97714f567daa0d",
       "fit_hash": "ae486b749fadd3695f8e475e092ea96ad5279cc453339fcc5bed0d8b1532eb22",
       "fitted_pair_count": 0,
       "label": "range",
@@ -15,7 +15,7 @@
     },
     {
       "btc_order_count": 0,
-      "decision_hash": "e98e83e851e28be12ab68a427ca8aa6aba01a4f03d26c6631a2d2e34cf1c7fef",
+      "decision_hash": "024e12f5f02fed19f930ea795d20c92c48814ce23f0f6a9cd15e3a5eb240f61a",
       "fit_hash": "ae486b749fadd3695f8e475e092ea96ad5279cc453339fcc5bed0d8b1532eb22",
       "fitted_pair_count": 0,
       "label": "range",
@@ -28,7 +28,7 @@
     },
     {
       "btc_order_count": 0,
-      "decision_hash": "6e4c31c9045a291065f0e0e50c68cc0baa00d85506149be8a644805a4c750a1e",
+      "decision_hash": "b0a73a36f547f7c6dc42be185120dfdece7e09536877993a0e516ee484d6884f",
       "fit_hash": "ae486b749fadd3695f8e475e092ea96ad5279cc453339fcc5bed0d8b1532eb22",
       "fitted_pair_count": 0,
       "label": "bull",
@@ -41,20 +41,20 @@
     },
     {
       "btc_order_count": 0,
-      "decision_hash": "b793441ba23c94e37772e246932dc88586d8eef9f395e10366875ac24a5a64a4",
-      "fit_hash": "ae486b749fadd3695f8e475e092ea96ad5279cc453339fcc5bed0d8b1532eb22",
-      "fitted_pair_count": 0,
+      "decision_hash": "4a74222e7db4f00af8f2ed09a186f9c92635376a4f3dbe765927d5b5e9324d37",
+      "fit_hash": "08e5ca36779780dddd84252346ff8e1a1cebd4211933e1dc42c7fa1f7fbf23b8",
+      "fitted_pair_count": 1,
       "label": "bull",
       "order_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
       "order_submit_count": 0,
       "policy_id": "R25-C1-16",
-      "rejection_count": 0,
-      "rejection_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "rejection_count": 1,
+      "rejection_hash": "4d7b0b27e689baf5c2e7afac6ec2b9c595b523f4c00ef818a3fb194bc72dfeee",
       "so_decision_count": 0
     },
     {
       "btc_order_count": 0,
-      "decision_hash": "b09e78ca3c0a3aa081018f23524af7fd0c535b611fec042edb0dc65c59b87c1b",
+      "decision_hash": "b29632563a1fb247fe260a4cd0b5ac862a53c9bf16aebae4142854dca1a63059",
       "fit_hash": "ae486b749fadd3695f8e475e092ea96ad5279cc453339fcc5bed0d8b1532eb22",
       "fitted_pair_count": 0,
       "label": "shock",
@@ -67,7 +67,7 @@
     },
     {
       "btc_order_count": 0,
-      "decision_hash": "93c59874244a3fd7adf878d9ca7c6bc93e4e51d5feb59b75262749266d4f9ae9",
+      "decision_hash": "e31628e4350f47c66da1d9dbf14263a01280ef170a1814dc427a23ac335e5276",
       "fit_hash": "ae486b749fadd3695f8e475e092ea96ad5279cc453339fcc5bed0d8b1532eb22",
       "fitted_pair_count": 0,
       "label": "shock",
@@ -80,7 +80,7 @@
     },
     {
       "btc_order_count": 0,
-      "decision_hash": "db353dd75f7ab3cb97a35760e43edb9f9e45b49892acddbdeed741cdd594da5c",
+      "decision_hash": "76a2ffa5ce1161fe2734065563d1f10140e2f244d4fb8ad3e674a15ad511c5b3",
       "fit_hash": "ae486b749fadd3695f8e475e092ea96ad5279cc453339fcc5bed0d8b1532eb22",
       "fitted_pair_count": 0,
       "label": "bear",
@@ -93,7 +93,7 @@
     },
     {
       "btc_order_count": 0,
-      "decision_hash": "537940e446146d95e6636b50fc633b58d0abb6f25943822bc8088ea1b9571ae0",
+      "decision_hash": "aafb7a01e3282f30ec8cb42e24270a59beaf3ae3c45be796e44a5c47875fad85",
       "fit_hash": "ae486b749fadd3695f8e475e092ea96ad5279cc453339fcc5bed0d8b1532eb22",
       "fitted_pair_count": 0,
       "label": "bear",
