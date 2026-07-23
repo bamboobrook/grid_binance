@@ -17,11 +17,6 @@ fn main() -> Result<()> {
         return trace_child(Path::new(args.get(2).context("missing trace dir")?));
     }
     let output = PathBuf::from(args.get(1).context("usage: r24_bootstrap <staging-dir>")?);
-    if output.exists() {
-        fs::remove_dir_all(&output)?;
-    }
-    fs::create_dir_all(output.join("traces/r0-bootstrap"))?;
-    fs::create_dir_all(output.join("gates"))?;
     let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .canonicalize()?;
@@ -36,6 +31,11 @@ fn main() -> Result<()> {
     if dirty || commit != upstream {
         bail!("R0 requires clean pushed commit");
     }
+    if output.exists() {
+        fs::remove_dir_all(&output)?;
+    }
+    fs::create_dir_all(output.join("traces/r0-bootstrap"))?;
+    fs::create_dir_all(output.join("gates"))?;
 
     let canaries = run_all_canaries();
     if canaries.len() != 32 || canaries.values().any(|passed| !passed) {
