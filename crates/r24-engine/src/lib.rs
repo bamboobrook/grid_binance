@@ -620,6 +620,47 @@ impl SharedAccount {
         Ok(())
     }
 
+    pub fn mark_adverse_bar(
+        &mut self,
+        timestamp: i64,
+        lows: &BTreeMap<String, f64>,
+        highs: &BTreeMap<String, f64>,
+        closes: &BTreeMap<String, f64>,
+    ) -> Result<()> {
+        if self.terminated {
+            return Ok(());
+        }
+        self.last_timestamp = self.last_timestamp.max(timestamp);
+        for (key, position) in &mut self.positions {
+            let adverse = match key.mode {
+                PositionMode::Long => lows.get(&key.symbol),
+                PositionMode::Short => highs.get(&key.symbol),
+            };
+            if let Some(price) = adverse {
+                position.mark_price = *price;
+            }
+        }
+        self.update_equity_metrics();
+        let adverse_equity = self.equity();
+        let maintenance = self.maintenance_margin();
+        self.trace(
+            timestamp,
+            "margin",
+            "adverse_bar_path",
+            None,
+            None,
+            None,
+            None,
+            Some(adverse_equity),
+            &format!("maintenance={maintenance:.8}"),
+        );
+        if adverse_equity <= maintenance {
+            self.force_liquidate(timestamp)?;
+            return Ok(());
+        }
+        self.mark(timestamp, closes)
+    }
+
     pub fn transition_block(&mut self, timestamp: i64, new_fit_version: &str) {
         self.last_timestamp = timestamp;
         self.trace(
@@ -1373,6 +1414,25 @@ mod tests {
             .mark(2, &BTreeMap::from([("BTCUSDT".into(), 100.0)]))
             .unwrap();
         assert!(account.terminated);
+    }
+
+    #[test]
+    fn one_minute_adverse_extreme_liquidates_even_when_close_is_safe() {
+        let mut account = SharedAccount::new(100.0, EngineConfig::default()).unwrap();
+        account.submit(request("o", "BTCUSDT", 100.0)).unwrap();
+        account
+            .mark_adverse_bar(
+                2,
+                &BTreeMap::from([("BTCUSDT".into(), 0.01)]),
+                &BTreeMap::from([("BTCUSDT".into(), 101.0)]),
+                &BTreeMap::from([("BTCUSDT".into(), 100.0)]),
+            )
+            .unwrap();
+        assert!(account.terminated);
+        assert!(account
+            .traces
+            .iter()
+            .any(|trace| trace.event == "forced_close" && trace.timestamp == 2));
     }
 
     #[test]

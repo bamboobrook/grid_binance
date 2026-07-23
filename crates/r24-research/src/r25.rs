@@ -174,6 +174,28 @@ impl R25Filter {
             accepted: rounded_qty >= self.min_qty && gross >= self.min_notional,
         }
     }
+
+    pub fn resolve_for_mode(
+        &self,
+        raw_qty: f64,
+        raw_price: f64,
+        mode: r24_engine::PositionMode,
+    ) -> R25ResolvedOrder {
+        let rounded_price = match mode {
+            r24_engine::PositionMode::Long => ceil_to_step(raw_price, self.tick_size),
+            r24_engine::PositionMode::Short => floor_to_step(raw_price, self.tick_size),
+        };
+        let rounded_qty = floor_to_step(raw_qty, self.step_size);
+        let gross = rounded_price * rounded_qty;
+        R25ResolvedOrder {
+            raw_qty,
+            rounded_qty,
+            raw_price,
+            rounded_price,
+            gross,
+            accepted: rounded_qty >= self.min_qty && gross >= self.min_notional,
+        }
+    }
 }
 
 pub fn atomic_pair_admission(left: R25ResolvedOrder, right: R25ResolvedOrder) -> bool {
@@ -430,6 +452,10 @@ pub fn copula_reference_report() -> serde_json::Value {
 
 fn floor_to_step(value: f64, step: f64) -> f64 {
     (value / step).floor() * step
+}
+
+fn ceil_to_step(value: f64, step: f64) -> f64 {
+    (value / step).ceil() * step
 }
 
 fn completed_bar_fill_is_causal() -> bool {
