@@ -1,0 +1,29 @@
+{
+  "actual_filled_assets": 6,
+  "loaded_assets": 8,
+  "shared_account": true,
+  "pbo_policy_population": 16,
+  "pbo_selected_population": 16,
+  "dsr_trial_count": null,
+  "global_trial_floor": 1080,
+  "open_perp_notional": 0.0,
+  "funding_cashflow_abs": 1.0293462423594661,
+  "signal_lag_buckets": 1,
+  "block_cycle_preserved": true,
+  "expected_blocks": 12,
+  "denominator_blocks": 12,
+  "source_is_pdf": true,
+  "aggressive_target_ann_pct": 100.0,
+  "sharpe_is_user_hard_gate": false,
+  "stitched_days": 1066,
+  "configured_budget_u": 1000.0,
+  "argv_budget_u": 1000.0,
+  "selector_frozen": true,
+  "cold_start_offsets_days": [
+    0,
+    30,
+    60,
+    90,
+    120
+  ]
+}
