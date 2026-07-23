@@ -1,0 +1,336 @@
+{
+  "audit_scope": "selected Round 25R production fit-cache models",
+  "caches": [
+    {
+      "cache_file": "6802af38d466f68d52653b27949fe370af117e79916ccc0df39b7f4739075063.json",
+      "models": [
+        {
+          "independently_stationary": false,
+          "legs": [
+            {
+              "decision_disagrees": true,
+              "fit_end_ms": 1727733599999,
+              "fit_start_ms": 1722553199999,
+              "independent": {
+                "beta": 0.6631118045454811,
+                "eg_coint_p_value": 0.27367416670077477,
+                "half_life_bars": 63.91728505832441,
+                "intercept": 12.500270189801673,
+                "kpss_p_value": 0.1,
+                "kpss_stat": 0.2917238985667862,
+                "passed": false,
+                "residual_adf_p_value": 0.11276382542262037,
+                "residual_adf_stat": -2.5112382577331074,
+                "residual_sigma": 0.02400499167521771,
+                "sample_count": 1440
+              },
+              "rust": {
+                "adf_p_value": 0.0028634100837051646,
+                "half_life_bars": 63.91728505832375,
+                "kpss_p_value": 0.1,
+                "passed": true
+              },
+              "side": "left",
+              "symbol": "DOGEUSDT"
+            },
+            {
+              "decision_disagrees": true,
+              "fit_end_ms": 1727733599999,
+              "fit_start_ms": 1722553199999,
+              "independent": {
+                "beta": 0.5922948481244975,
+                "eg_coint_p_value": 0.26163979020273215,
+                "half_life_bars": 67.18497893943773,
+                "intercept": 9.584768539880322,
+                "kpss_p_value": 0.03311495565908999,
+                "kpss_stat": 0.5379695968736404,
+                "passed": false,
+                "residual_adf_p_value": 0.10619261768293631,
+                "residual_adf_stat": -2.53934370826842,
+                "residual_sigma": 0.02410556388042893,
+                "sample_count": 1440
+              },
+              "rust": {
+                "adf_p_value": 0.003089858696668002,
+                "half_life_bars": 67.184978939437,
+                "kpss_p_value": 0.08466873129371615,
+                "passed": true
+              },
+              "side": "right",
+              "symbol": "LINKUSDT"
+            }
+          ],
+          "pair": "DOGEUSDT-LINKUSDT",
+          "rust_independent_reference_error": 0.0
+        }
+      ]
+    },
+    {
+      "cache_file": "a42a5106404c36c48aba351b6200de9b97d6024e371cd416fd9a8922a90321c2.json",
+      "models": [
+        {
+          "independently_stationary": false,
+          "legs": [
+            {
+              "decision_disagrees": true,
+              "fit_end_ms": 1774994399999,
+              "fit_start_ms": 1764629999999,
+              "independent": {
+                "beta": 0.7502403522997952,
+                "eg_coint_p_value": 0.10341321931103575,
+                "half_life_bars": 77.13217283641674,
+                "intercept": 10.88928569167581,
+                "kpss_p_value": 0.1,
+                "kpss_stat": 0.32400785073697375,
+                "passed": false,
+                "residual_adf_p_value": 0.03207119724641356,
+                "residual_adf_stat": -3.031320396843212,
+                "residual_sigma": 0.026375232344384297,
+                "sample_count": 2880
+              },
+              "rust": {
+                "adf_p_value": 9.941197644169897e-05,
+                "half_life_bars": 77.1321728364177,
+                "kpss_p_value": 0.1,
+                "passed": true
+              },
+              "side": "left",
+              "symbol": "XRPUSDT"
+            },
+            {
+              "decision_disagrees": true,
+              "fit_end_ms": 1774994399999,
+              "fit_start_ms": 1764629999999,
+              "independent": {
+                "beta": 0.7353588761503392,
+                "eg_coint_p_value": 0.19629853660584684,
+                "half_life_bars": 142.77208327364605,
+                "intercept": 12.879609151852263,
+                "kpss_p_value": 0.05639905937192609,
+                "kpss_stat": 0.4481541822571315,
+                "passed": false,
+                "residual_adf_p_value": 0.07254166367985981,
+                "residual_adf_stat": -2.708718717198337,
+                "residual_sigma": 0.037024351335819286,
+                "sample_count": 2880
+              },
+              "rust": {
+                "adf_p_value": 0.003377229358451417,
+                "half_life_bars": 142.77208327364605,
+                "kpss_p_value": 0.1,
+                "passed": true
+              },
+              "side": "right",
+              "symbol": "DOGEUSDT"
+            }
+          ],
+          "pair": "XRPUSDT-DOGEUSDT",
+          "rust_independent_reference_error": 0.0
+        },
+        {
+          "independently_stationary": false,
+          "legs": [
+            {
+              "decision_disagrees": true,
+              "fit_end_ms": 1774994399999,
+              "fit_start_ms": 1764629999999,
+              "independent": {
+                "beta": 0.7979402539623442,
+                "eg_coint_p_value": 0.005325667173269534,
+                "half_life_bars": 47.022735427647895,
+                "intercept": 5.9920965414158935,
+                "kpss_p_value": 0.028908599641675824,
+                "kpss_stat": 0.5566458175909593,
+                "passed": false,
+                "residual_adf_p_value": 0.0010091326114744178,
+                "residual_adf_stat": -4.089194240453677,
+                "residual_sigma": 0.016218856665907385,
+                "sample_count": 2880
+              },
+              "rust": {
+                "adf_p_value": 1.9242784397577317e-06,
+                "half_life_bars": 47.022735427647895,
+                "kpss_p_value": 0.09487624134419506,
+                "passed": true
+              },
+              "side": "left",
+              "symbol": "BNBUSDT"
+            },
+            {
+              "decision_disagrees": false,
+              "fit_end_ms": 1774994399999,
+              "fit_start_ms": 1764629999999,
+              "independent": {
+                "beta": 0.6297992417905358,
+                "eg_coint_p_value": 0.001948370246716581,
+                "half_life_bars": 32.224720597466195,
+                "intercept": 8.335913975062088,
+                "kpss_p_value": 0.1,
+                "kpss_stat": 0.30840588932818896,
+                "passed": true,
+                "residual_adf_p_value": 0.0003289111903807949,
+                "residual_adf_stat": -4.374749362848121,
+                "residual_sigma": 0.01333688748392449,
+                "sample_count": 2880
+              },
+              "rust": {
+                "adf_p_value": 1.2121927572827929e-08,
+                "half_life_bars": 32.224720597466025,
+                "kpss_p_value": 0.1,
+                "passed": true
+              },
+              "side": "right",
+              "symbol": "SOLUSDT"
+            }
+          ],
+          "pair": "BNBUSDT-SOLUSDT",
+          "rust_independent_reference_error": 0.0
+        }
+      ]
+    },
+    {
+      "cache_file": "e904ff8aadee0cf18a8b85cc73d6a7a859314f00c1a84d5159ae7f80ce8c92bd.json",
+      "models": [
+        {
+          "independently_stationary": true,
+          "legs": [
+            {
+              "decision_disagrees": false,
+              "fit_end_ms": 1743458399999,
+              "fit_start_ms": 1738277999999,
+              "independent": {
+                "beta": 0.3617283896943029,
+                "eg_coint_p_value": 0.018221331030729128,
+                "half_life_bars": 36.24920439542857,
+                "intercept": 9.580864867092448,
+                "kpss_p_value": 0.1,
+                "kpss_stat": 0.31118116598784235,
+                "passed": true,
+                "residual_adf_p_value": 0.004104375340468987,
+                "residual_adf_stat": -3.7006247291663015,
+                "residual_sigma": 0.0199873014325194,
+                "sample_count": 1440
+              },
+              "rust": {
+                "adf_p_value": 0.0001075650441971221,
+                "half_life_bars": 36.24920439542836,
+                "kpss_p_value": 0.1,
+                "passed": true
+              },
+              "side": "left",
+              "symbol": "SOLUSDT"
+            },
+            {
+              "decision_disagrees": false,
+              "fit_end_ms": 1743458399999,
+              "fit_start_ms": 1738277999999,
+              "independent": {
+                "beta": 0.3569817093455275,
+                "eg_coint_p_value": 0.016350740513485035,
+                "half_life_bars": 35.679123545734,
+                "intercept": 11.959943572051918,
+                "kpss_p_value": 0.1,
+                "kpss_stat": 0.280582471435981,
+                "passed": true,
+                "residual_adf_p_value": 0.003622482310107903,
+                "residual_adf_stat": -3.7369465210689423,
+                "residual_sigma": 0.0186001478344598,
+                "sample_count": 1440
+              },
+              "rust": {
+                "adf_p_value": 9.316236322948201e-05,
+                "half_life_bars": 35.67912354573318,
+                "kpss_p_value": 0.1,
+                "passed": true
+              },
+              "side": "right",
+              "symbol": "DOGEUSDT"
+            }
+          ],
+          "pair": "SOLUSDT-DOGEUSDT",
+          "rust_independent_reference_error": 0.0
+        },
+        {
+          "independently_stationary": false,
+          "legs": [
+            {
+              "decision_disagrees": true,
+              "fit_end_ms": 1743458399999,
+              "fit_start_ms": 1738277999999,
+              "independent": {
+                "beta": 0.42375919489602915,
+                "eg_coint_p_value": 0.07662005296017507,
+                "half_life_bars": 45.205549565626285,
+                "intercept": 8.123687814339426,
+                "kpss_p_value": 0.026561704221294995,
+                "kpss_stat": 0.5670660332574502,
+                "passed": false,
+                "residual_adf_p_value": 0.022402052485614544,
+                "residual_adf_stat": -3.160280065778597,
+                "residual_sigma": 0.021726255392231348,
+                "sample_count": 1440
+              },
+              "rust": {
+                "adf_p_value": 0.00046834823089114686,
+                "half_life_bars": 45.205549565626285,
+                "kpss_p_value": 0.07255130626781799,
+                "passed": true
+              },
+              "side": "left",
+              "symbol": "ETHUSDT"
+            },
+            {
+              "decision_disagrees": true,
+              "fit_end_ms": 1743458399999,
+              "fit_start_ms": 1738277999999,
+              "independent": {
+                "beta": 0.43710959844110026,
+                "eg_coint_p_value": 0.06014272109021547,
+                "half_life_bars": 40.051160955972186,
+                "intercept": 10.187331874252495,
+                "kpss_p_value": 0.038541669039972734,
+                "kpss_stat": 0.5138749894625211,
+                "passed": false,
+                "residual_adf_p_value": 0.016527164939635325,
+                "residual_adf_stat": -3.2647993015259256,
+                "residual_sigma": 0.020302465529775826,
+                "sample_count": 1440
+              },
+              "rust": {
+                "adf_p_value": 0.00017637328045266853,
+                "half_life_bars": 40.051160955972975,
+                "kpss_p_value": 0.09410930828502093,
+                "passed": true
+              },
+              "side": "right",
+              "symbol": "LINKUSDT"
+            }
+          ],
+          "pair": "ETHUSDT-LINKUSDT",
+          "rust_independent_reference_error": 0.0
+        }
+      ]
+    }
+  ],
+  "database": "data/market_data_full.db",
+  "fit_cache_root": "artifacts-local/round25-corrected/f710449b7f933fe954ae5a6e936ecf0b7a1798dd/fit-cache",
+  "frequency": "1h",
+  "method": {
+    "cointegration": "statsmodels.tsa.stattools.coint trend=c autolag=aic",
+    "pass_rule": "EG p<=0.05 and KPSS p>=0.05 and finite AR(1) half-life",
+    "residual_adf": "statsmodels.tsa.stattools.adfuller regression=c autolag=AIC",
+    "scipy_version": "1.16.3",
+    "stationarity_confirmation": "statsmodels KPSS regression=c nlags=auto",
+    "statsmodels_version": "0.14.5"
+  },
+  "return_blind": true,
+  "schema_version": 1,
+  "summary": {
+    "independently_failing_leg_count": 7,
+    "independently_passing_leg_count": 3,
+    "independently_passing_pair_count": 1,
+    "selected_cache_count": 3,
+    "selected_leg_count": 10,
+    "selected_pair_count": 5
+  }
+}
