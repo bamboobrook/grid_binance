@@ -102,8 +102,10 @@ struct RunContext {
     exchange_info: PathBuf,
     source_update: PathBuf,
     commit: String,
+    source_tree: String,
     upstream: String,
     dirty: bool,
+    remote_sync_status: String,
 }
 
 impl RunContext {
@@ -113,11 +115,18 @@ impl RunContext {
             bail!("R25 recovery must run on glm-martingale-core-round25, got {branch}");
         }
         let commit = git(&repo, &["rev-parse", "HEAD"])?;
+        let source_tree = git(&repo, &["rev-parse", "HEAD^{tree}"])?;
         let upstream = git(&repo, &["rev-parse", "@{u}"])?;
         let dirty = !git(&repo, &["status", "--porcelain"])?.is_empty();
-        if dirty || commit != upstream {
-            bail!("phase launch requires clean pushed parent: dirty={dirty} commit={commit} upstream={upstream}");
+        if dirty {
+            bail!("phase launch requires clean immutable local parent: dirty={dirty} commit={commit} source_tree={source_tree}");
         }
+        let remote_sync_status = if commit == upstream {
+            "SYNCED"
+        } else {
+            "PUSH_PENDING"
+        }
+        .to_string();
         Ok(Self {
             market_db: repo.join("data/market_data_full.db"),
             funding_db: repo.join("data/funding_rates.db"),
@@ -126,8 +135,10 @@ impl RunContext {
             repo,
             artifact,
             commit,
+            source_tree,
             upstream,
             dirty,
+            remote_sync_status,
         })
     }
 }
@@ -219,7 +230,11 @@ fn run_preflight(context: &RunContext, force: bool) -> Result<()> {
             "phase":"R0","passed":true,
             "artifact_root":context.artifact.strip_prefix(&context.repo)?.to_string_lossy(),
             "old_artifact_read_only":"docs/superpowers/artifacts/glm-martingale-core-round25",
-            "git_commit":context.commit,"upstream_commit":context.upstream,"dirty":context.dirty
+            "git_commit":context.commit,
+            "source_tree":context.source_tree,
+            "upstream_commit":context.upstream,
+            "dirty":context.dirty,
+            "remote_sync_status":context.remote_sync_status
         }),
     )?;
     println!(
@@ -637,8 +652,10 @@ fn append_registry_for_phase(
         "phase":phase,
         "mechanism_fingerprint":sha256(format!("r25-recovery-{phase}-{experiment_id}").as_bytes()),
         "git_commit":context.commit,
+        "source_tree":context.source_tree,
         "git_dirty":context.dirty,
         "upstream_commit":context.upstream,
+        "remote_sync_status":context.remote_sync_status,
         "raw_argv":std::env::args().collect::<Vec<_>>(),
         "pid":std::process::id(),
         "start_utc":start,
@@ -695,7 +712,9 @@ fn write_final_authority(
         "historical_backtest_only":true,
         "return_replays_run":results.len(),
         "audited_commit":context.commit,
+        "audited_source_tree":context.source_tree,
         "audited_upstream":context.upstream,
+        "remote_sync_status":context.remote_sync_status,
         "phase_status":phase_status,
         "p_b_survivors":p_b_survivors,
         "target_hit":false,
@@ -718,6 +737,9 @@ fn write_final_authority(
             "frontier_progress":false,
             "return_replays_run":results.len(),
             "p_b_survivors":p_b_survivors,
+            "audited_commit":context.commit,
+            "audited_source_tree":context.source_tree,
+            "remote_sync_status":context.remote_sync_status,
             "strict_valid_candidates":[],
             "phase_status":phase_status,
             "not_claimed":"all Martingale possibilities exhausted"
@@ -838,8 +860,10 @@ fn render_report(
     results: &[R25ReplayEvidence],
 ) -> String {
     format!(
-        "# GLM Round25 Recovery Handoff\n\nStatus: `{status}`.\n\n- Parent commit: `{}`\n- Artifact root: `{}`\n- G1 policies executed: `{}`\n- P-B survivors: `{p_b_survivors}`\n- Historical only: `true`\n\nG0 used real C1 replay via `run_r25_c1_replay`; G1 then replayed the frozen 16-policy population. BTC order/trade count is reported per replay and remains a hard gate.\n",
+        "# GLM Round25 Recovery Handoff\n\nStatus: `{status}`.\n\n- Parent commit: `{}`\n- Source tree: `{}`\n- Remote sync: `{}`\n- Artifact root: `{}`\n- G1 policies executed: `{}`\n- P-B survivors: `{p_b_survivors}`\n- Historical only: `true`\n\nG0 used real C1 replay via `run_r25_c1_replay`; G1 then replayed the frozen 16-policy population. BTC order/trade count is reported per replay and remains a hard gate.\n",
         context.commit,
+        context.source_tree,
+        context.remote_sync_status,
         context.artifact.display(),
         results.len()
     )
