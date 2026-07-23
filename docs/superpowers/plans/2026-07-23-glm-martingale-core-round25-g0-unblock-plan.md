@@ -1,5 +1,10 @@
 # GLM Martingale Core Round 25：G0 解锁与连续回放唯一任务书
 
+> **执行后已被替代（2026-07-23）**：独立审计发现 reserve 泄漏、minNotional 不可达门和 Copula 实现偏差。
+> 后续唯一任务书为
+> `docs/superpowers/plans/2026-07-23-glm-martingale-core-round25r-corrected-copula-replay-plan.md`。
+> 本文件及其 recovery 输出仅作 invalid trial 历史，不得继续作为收益 authority。
+
 制定日期：2026-07-23。
 
 本文件是 Round 25 后续执行的唯一任务书，替代

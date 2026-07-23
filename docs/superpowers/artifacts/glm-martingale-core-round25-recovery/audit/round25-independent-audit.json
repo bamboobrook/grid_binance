@@ -1,0 +1,77 @@
+{
+  "audit_version": 1,
+  "audited_execution_commit": "64de70ce",
+  "audited_replay_source_commit": "0c079cc787173314773208f8a19daed6f69601f4",
+  "audited_artifact_root": "docs/superpowers/artifacts/glm-martingale-core-round25-recovery",
+  "corrected_status": "MATERIALLY_INCOMPLETE_INVALID_RESULTS",
+  "superseded_claim": "VALID_HISTORICAL_PREQUENTIAL_NO_TARGET",
+  "headline_usable": false,
+  "fingerprint_closed": false,
+  "target_evaluation": {
+    "conservative_50_ann_10_dd": "NOT_EVALUABLE",
+    "balanced_90_ann_20_dd": "NOT_EVALUABLE",
+    "aggressive_100_ann_30_dd": "NOT_EVALUABLE"
+  },
+  "raw_best_invalid": [
+    {"policy_id":"R25-C1-03","annualized_return_pct":0.3985296528833837,"max_equity_drawdown_pct":0.8052838812065461,"actual_asset_count":4,"so_fill_count":2},
+    {"policy_id":"R25-C1-04","annualized_return_pct":0.3985296528833837,"max_equity_drawdown_pct":0.8052838812065461,"actual_asset_count":4,"so_fill_count":2},
+    {"policy_id":"R25-C1-12","annualized_return_pct":0.36998532514223026,"max_equity_drawdown_pct":0.8209407021489104,"actual_asset_count":4,"so_fill_count":0}
+  ],
+  "critical_findings": [
+    {
+      "id": "R25-AUDIT-P0-RESERVE-LEAK",
+      "class": "accounting_engine_bug",
+      "evidence_policy": "R25-C1-03",
+      "reserve_count": 365617,
+      "reserve_sum_u": 4813347.805011773,
+      "consume_count": 365541,
+      "consume_sum_u": 4812347.26501177,
+      "unreleased_count": 76,
+      "unreleased_u": 1000.540000003,
+      "effect": "shared account becomes reserve-locked and suppresses later orders"
+    },
+    {
+      "id": "R25-AUDIT-P0-MIN-NOTIONAL",
+      "class": "structurally_impossible_gate",
+      "group_fo_gross_u": 20,
+      "per_leg_target_u": 10,
+      "eth_min_notional_u": 20,
+      "link_min_notional_u": 20,
+      "effect": "ETH and LINK cannot fill, so six-asset promotion is impossible"
+    },
+    {
+      "id": "R25-AUDIT-P0-COPULA",
+      "class": "model_implementation_mismatch",
+      "facts": [
+        "rho computed from independently sorted spreads instead of timestamp-aligned observations",
+        "Student-t train-AIC selection absent",
+        "stationarity and break gates absent",
+        "active SO uses rho=0",
+        "worsening and rolling stationarity states hard-coded"
+      ]
+    },
+    {
+      "id": "R25-AUDIT-P1-METRICS",
+      "class": "promotion_metrics_incomplete",
+      "facts": [
+        "positive_blocks hard-coded zero",
+        "cost ratio and concentration missing",
+        "one-minute liquidation path missing",
+        "validator does not independently reconcile traces"
+      ]
+    },
+    {
+      "id": "R25-AUDIT-P1-GIT-SIZE",
+      "class": "remote_delivery_blocker",
+      "largest_observed_blob_bytes": 269976737,
+      "github_single_file_limit_bytes": 100000000,
+      "effect": "existing local evidence commit cannot be pushed as normal Git blobs"
+    }
+  ],
+  "retained_partial_evidence": [
+    "BTC order and trade counts are zero in persisted summaries",
+    "six alt data gate is available and LTC is explicitly ineligible",
+    "sixteen policies and invalid attempts remain part of the global trial ledger"
+  ],
+  "required_next_action": "execute Round25R corrected replay before any new family or target conclusion"
+}
