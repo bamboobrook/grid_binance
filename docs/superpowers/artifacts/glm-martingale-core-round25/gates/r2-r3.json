@@ -1,0 +1,10 @@
+{
+  "data_manifest_frozen": true,
+  "passed": true,
+  "phase": "R2_R3",
+  "policy_count": 16,
+  "protocol_frozen": true,
+  "return_replays_run": 0,
+  "source_map_frozen": true,
+  "trial_floor": 1096
+}

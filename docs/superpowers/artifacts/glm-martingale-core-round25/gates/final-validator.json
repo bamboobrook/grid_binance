@@ -1,0 +1,17 @@
+{
+  "authority_state_status_match": true,
+  "final_status": "BLOCKED_ENGINE_DATA_OR_EXECUTION",
+  "historical_backtest_only": true,
+  "no_future_lock_created": true,
+  "passed": true,
+  "registry_summary": {
+    "failed_terminal_rows": 1,
+    "failure_rows": 1,
+    "running_rows": 3,
+    "terminal_rows": 3,
+    "unique_experiments": 3,
+    "valid_shape": true
+  },
+  "return_replays_run": 0,
+  "validator_generated": true
+}

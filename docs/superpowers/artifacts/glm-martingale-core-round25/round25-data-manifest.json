@@ -1,0 +1,306 @@
+{
+  "audit_warning": "raw Binance daily archive URL/bytes/SHA256 chain is not complete in this git artifact set; local SQLite coverage and sample hashes are recorded",
+  "data_gate_for_return_replay": true,
+  "filter_snapshot": {
+    "bytes": 16362,
+    "g2_stress_model": "2x minNotional, coarser rounding, 5pct maintenance",
+    "historical_filter_snapshot_claim": false,
+    "main_replay_model": "current snapshot plus conservative static maintenance max(current,2.5pct)",
+    "path": "docs/superpowers/artifacts/glm-martingale-core-round24/data/perp-exchangeInfo-8-symbols.json",
+    "sha256": "0320b9b72fe178b71505e344b092c4db0a98554529061f2138c562be24b5098d"
+  },
+  "frozen_before_return_replay": true,
+  "funding_database": {
+    "bytes": 7417856,
+    "coverage": [
+      {
+        "archive_sha256_status": "not_available_in_git_round25_blocker",
+        "complete_for_time_range": true,
+        "expected_rows": 3741,
+        "key": "futures_um_funding_BTCUSDT_2023-01-01_2026-05-31",
+        "max_timestamp": 1780243200004,
+        "min_timestamp": 1672531200000,
+        "rows": 3741,
+        "source_url": "https://fapi.binance.com/fapi/v1/fundingRate",
+        "symbol": "BTCUSDT",
+        "timestamp_tolerance_ms": 1000,
+        "unique_timestamps": 3741
+      },
+      {
+        "archive_sha256_status": "not_available_in_git_round25_blocker",
+        "complete_for_time_range": true,
+        "expected_rows": 3741,
+        "key": "futures_um_funding_ETHUSDT_2023-01-01_2026-05-31",
+        "max_timestamp": 1780243200004,
+        "min_timestamp": 1672531200000,
+        "rows": 3741,
+        "source_url": "https://fapi.binance.com/fapi/v1/fundingRate",
+        "symbol": "ETHUSDT",
+        "timestamp_tolerance_ms": 1000,
+        "unique_timestamps": 3741
+      },
+      {
+        "archive_sha256_status": "not_available_in_git_round25_blocker",
+        "complete_for_time_range": true,
+        "expected_rows": 3741,
+        "key": "futures_um_funding_BNBUSDT_2023-01-01_2026-05-31",
+        "max_timestamp": 1780243200004,
+        "min_timestamp": 1672531200000,
+        "rows": 3741,
+        "source_url": "https://fapi.binance.com/fapi/v1/fundingRate",
+        "symbol": "BNBUSDT",
+        "timestamp_tolerance_ms": 1000,
+        "unique_timestamps": 3741
+      },
+      {
+        "archive_sha256_status": "not_available_in_git_round25_blocker",
+        "complete_for_time_range": true,
+        "expected_rows": 3741,
+        "key": "futures_um_funding_SOLUSDT_2023-01-01_2026-05-31",
+        "max_timestamp": 1780243200004,
+        "min_timestamp": 1672531200000,
+        "rows": 3741,
+        "source_url": "https://fapi.binance.com/fapi/v1/fundingRate",
+        "symbol": "SOLUSDT",
+        "timestamp_tolerance_ms": 1000,
+        "unique_timestamps": 3741
+      },
+      {
+        "archive_sha256_status": "not_available_in_git_round25_blocker",
+        "complete_for_time_range": true,
+        "expected_rows": 3741,
+        "key": "futures_um_funding_XRPUSDT_2023-01-01_2026-05-31",
+        "max_timestamp": 1780243200004,
+        "min_timestamp": 1672531200000,
+        "rows": 3741,
+        "source_url": "https://fapi.binance.com/fapi/v1/fundingRate",
+        "symbol": "XRPUSDT",
+        "timestamp_tolerance_ms": 1000,
+        "unique_timestamps": 3741
+      },
+      {
+        "archive_sha256_status": "not_available_in_git_round25_blocker",
+        "complete_for_time_range": true,
+        "expected_rows": 3741,
+        "key": "futures_um_funding_DOGEUSDT_2023-01-01_2026-05-31",
+        "max_timestamp": 1780243200004,
+        "min_timestamp": 1672531200000,
+        "rows": 3741,
+        "source_url": "https://fapi.binance.com/fapi/v1/fundingRate",
+        "symbol": "DOGEUSDT",
+        "timestamp_tolerance_ms": 1000,
+        "unique_timestamps": 3741
+      },
+      {
+        "archive_sha256_status": "not_available_in_git_round25_blocker",
+        "complete_for_time_range": true,
+        "expected_rows": 3741,
+        "key": "futures_um_funding_LINKUSDT_2023-01-01_2026-05-31",
+        "max_timestamp": 1780243200004,
+        "min_timestamp": 1672531200000,
+        "rows": 3741,
+        "source_url": "https://fapi.binance.com/fapi/v1/fundingRate",
+        "symbol": "LINKUSDT",
+        "timestamp_tolerance_ms": 1000,
+        "unique_timestamps": 3741
+      },
+      {
+        "archive_sha256_status": "not_available_in_git_round25_blocker",
+        "complete_for_time_range": false,
+        "expected_rows": 3741,
+        "key": "futures_um_funding_LTCUSDT_2023-01-01_2026-05-31",
+        "max_timestamp": null,
+        "min_timestamp": null,
+        "rows": 0,
+        "source_url": "https://fapi.binance.com/fapi/v1/fundingRate",
+        "symbol": "LTCUSDT",
+        "timestamp_tolerance_ms": 1000,
+        "unique_timestamps": 0
+      }
+    ],
+    "full_database_sha256": "not_computed_large_local_archive",
+    "path": "data/funding_rates.db",
+    "schema": "CREATE TABLE funding_rates (\n            symbol TEXT NOT NULL,\n            funding_time INTEGER NOT NULL,\n            funding_rate REAL NOT NULL,\n            mark_price REAL,\n            PRIMARY KEY (symbol, funding_time)\n        )",
+    "sha256_status": "local_sqlite_row_coverage_recorded; raw_api_response_hash_chain_not_in_git"
+  },
+  "market_database": {
+    "bytes": 118747582464,
+    "coverage": [
+      {
+        "archive_sha256_status": "not_available_in_git_round25_blocker",
+        "complete_for_time_range": true,
+        "duplicate_rows": 0,
+        "expected_rows": 1795680,
+        "gap_histogram": {
+          "1_to_2_minutes": 0,
+          "3_to_10_minutes": 0,
+          "over_10_minutes": 0
+        },
+        "key": "futures_um_klines_1m_BTCUSDT_2023-01-01_2026-05-31",
+        "max_missing_run_minutes": 0,
+        "max_timestamp": 1780271940000,
+        "min_timestamp": 1672531200000,
+        "missing_minutes": 0,
+        "rows": 1795680,
+        "sample_sha256": "7ee5d0d2b2bbec4c334b7b71a259af90f8ba87c32f7e3116bcf33e06ab78bfc8",
+        "source_url_template": "https://data.binance.vision/data/futures/um/daily/klines/BTCUSDT/1m/BTCUSDT-1m-YYYY-MM-DD.zip",
+        "symbol": "BTCUSDT",
+        "unique_timestamps": 1795680
+      },
+      {
+        "archive_sha256_status": "not_available_in_git_round25_blocker",
+        "complete_for_time_range": true,
+        "duplicate_rows": 0,
+        "expected_rows": 1795680,
+        "gap_histogram": {
+          "1_to_2_minutes": 0,
+          "3_to_10_minutes": 0,
+          "over_10_minutes": 0
+        },
+        "key": "futures_um_klines_1m_ETHUSDT_2023-01-01_2026-05-31",
+        "max_missing_run_minutes": 0,
+        "max_timestamp": 1780271940000,
+        "min_timestamp": 1672531200000,
+        "missing_minutes": 0,
+        "rows": 1795680,
+        "sample_sha256": "bcf802fbef740075e702be94eb6ce0dea702565264d6bad370bc7443c3887006",
+        "source_url_template": "https://data.binance.vision/data/futures/um/daily/klines/ETHUSDT/1m/ETHUSDT-1m-YYYY-MM-DD.zip",
+        "symbol": "ETHUSDT",
+        "unique_timestamps": 1795680
+      },
+      {
+        "archive_sha256_status": "not_available_in_git_round25_blocker",
+        "complete_for_time_range": true,
+        "duplicate_rows": 0,
+        "expected_rows": 1795680,
+        "gap_histogram": {
+          "1_to_2_minutes": 0,
+          "3_to_10_minutes": 0,
+          "over_10_minutes": 0
+        },
+        "key": "futures_um_klines_1m_BNBUSDT_2023-01-01_2026-05-31",
+        "max_missing_run_minutes": 0,
+        "max_timestamp": 1780271940000,
+        "min_timestamp": 1672531200000,
+        "missing_minutes": 0,
+        "rows": 1795680,
+        "sample_sha256": "5a0efc3e6869eb0a3c295e7c087f3e547063abe2f9a0d0ebe0bc9eb6243818a4",
+        "source_url_template": "https://data.binance.vision/data/futures/um/daily/klines/BNBUSDT/1m/BNBUSDT-1m-YYYY-MM-DD.zip",
+        "symbol": "BNBUSDT",
+        "unique_timestamps": 1795680
+      },
+      {
+        "archive_sha256_status": "not_available_in_git_round25_blocker",
+        "complete_for_time_range": true,
+        "duplicate_rows": 0,
+        "expected_rows": 1795680,
+        "gap_histogram": {
+          "1_to_2_minutes": 0,
+          "3_to_10_minutes": 0,
+          "over_10_minutes": 0
+        },
+        "key": "futures_um_klines_1m_SOLUSDT_2023-01-01_2026-05-31",
+        "max_missing_run_minutes": 0,
+        "max_timestamp": 1780271940000,
+        "min_timestamp": 1672531200000,
+        "missing_minutes": 0,
+        "rows": 1795680,
+        "sample_sha256": "9adb09fab5e646cbba468fe8ec730ff212875cc882e8dd8aa26a5c9ee48fea79",
+        "source_url_template": "https://data.binance.vision/data/futures/um/daily/klines/SOLUSDT/1m/SOLUSDT-1m-YYYY-MM-DD.zip",
+        "symbol": "SOLUSDT",
+        "unique_timestamps": 1795680
+      },
+      {
+        "archive_sha256_status": "not_available_in_git_round25_blocker",
+        "complete_for_time_range": true,
+        "duplicate_rows": 0,
+        "expected_rows": 1795680,
+        "gap_histogram": {
+          "1_to_2_minutes": 0,
+          "3_to_10_minutes": 0,
+          "over_10_minutes": 0
+        },
+        "key": "futures_um_klines_1m_XRPUSDT_2023-01-01_2026-05-31",
+        "max_missing_run_minutes": 0,
+        "max_timestamp": 1780271940000,
+        "min_timestamp": 1672531200000,
+        "missing_minutes": 0,
+        "rows": 1795680,
+        "sample_sha256": "61873bd273e5cddd05be50118e456446a19f91d7b4e34bd98d1af4b7b2459c7c",
+        "source_url_template": "https://data.binance.vision/data/futures/um/daily/klines/XRPUSDT/1m/XRPUSDT-1m-YYYY-MM-DD.zip",
+        "symbol": "XRPUSDT",
+        "unique_timestamps": 1795680
+      },
+      {
+        "archive_sha256_status": "not_available_in_git_round25_blocker",
+        "complete_for_time_range": true,
+        "duplicate_rows": 0,
+        "expected_rows": 1795680,
+        "gap_histogram": {
+          "1_to_2_minutes": 0,
+          "3_to_10_minutes": 0,
+          "over_10_minutes": 0
+        },
+        "key": "futures_um_klines_1m_DOGEUSDT_2023-01-01_2026-05-31",
+        "max_missing_run_minutes": 0,
+        "max_timestamp": 1780271940000,
+        "min_timestamp": 1672531200000,
+        "missing_minutes": 0,
+        "rows": 1795680,
+        "sample_sha256": "91e4a7d820e89388da562acd3238ecbc75ada41b39796312ba77d18d457a8bd6",
+        "source_url_template": "https://data.binance.vision/data/futures/um/daily/klines/DOGEUSDT/1m/DOGEUSDT-1m-YYYY-MM-DD.zip",
+        "symbol": "DOGEUSDT",
+        "unique_timestamps": 1795680
+      },
+      {
+        "archive_sha256_status": "not_available_in_git_round25_blocker",
+        "complete_for_time_range": true,
+        "duplicate_rows": 0,
+        "expected_rows": 1795680,
+        "gap_histogram": {
+          "1_to_2_minutes": 0,
+          "3_to_10_minutes": 0,
+          "over_10_minutes": 0
+        },
+        "key": "futures_um_klines_1m_LINKUSDT_2023-01-01_2026-05-31",
+        "max_missing_run_minutes": 0,
+        "max_timestamp": 1780271940000,
+        "min_timestamp": 1672531200000,
+        "missing_minutes": 0,
+        "rows": 1795680,
+        "sample_sha256": "145c4c1712926798e11f6ef1caf6c7c5af88808d5b1585997a124995d85c5c91",
+        "source_url_template": "https://data.binance.vision/data/futures/um/daily/klines/LINKUSDT/1m/LINKUSDT-1m-YYYY-MM-DD.zip",
+        "symbol": "LINKUSDT",
+        "unique_timestamps": 1795680
+      },
+      {
+        "archive_sha256_status": "not_available_in_git_round25_blocker",
+        "complete_for_time_range": true,
+        "duplicate_rows": 0,
+        "expected_rows": 1795680,
+        "gap_histogram": {
+          "1_to_2_minutes": 0,
+          "3_to_10_minutes": 0,
+          "over_10_minutes": 0
+        },
+        "key": "futures_um_klines_1m_LTCUSDT_2023-01-01_2026-05-31",
+        "max_missing_run_minutes": 0,
+        "max_timestamp": 1780271940000,
+        "min_timestamp": 1672531200000,
+        "missing_minutes": 0,
+        "rows": 1795680,
+        "sample_sha256": "4aded7efca4ba6c9357231459809d7b944c9042015a18778a234e9bba528d798",
+        "source_url_template": "https://data.binance.vision/data/futures/um/daily/klines/LTCUSDT/1m/LTCUSDT-1m-YYYY-MM-DD.zip",
+        "symbol": "LTCUSDT",
+        "unique_timestamps": 1795680
+      }
+    ],
+    "full_database_sha256": "not_computed_large_local_archive",
+    "path": "data/market_data_full.db",
+    "schema": "CREATE TABLE klines (symbol TEXT NOT NULL, market_type TEXT NOT NULL DEFAULT 'spot', timeframe TEXT NOT NULL, open_time INTEGER NOT NULL, open REAL NOT NULL, high REAL NOT NULL, low REAL NOT NULL, close REAL NOT NULL, volume REAL NOT NULL, close_time INTEGER NOT NULL)",
+    "sha256_status": "local_sqlite_sample_hashes_recorded; raw_daily_archive_hash_chain_not_in_git"
+  },
+  "raw_archives_in_git": false,
+  "schema_version": 1,
+  "stale_rule": "missing >10m prohibits new FO/SO; active group reduce/abort by frozen stale rule"
+}

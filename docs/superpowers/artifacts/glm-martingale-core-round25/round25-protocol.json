@@ -1,0 +1,117 @@
+{
+  "conditional_enhancement": "C2_ASYMMETRIC_TAIL_SO_VETO",
+  "family": "C1_REFERENCE_ASSET_CONDITIONAL_COPULA_MARTIN",
+  "historical_backtest_only": true,
+  "market": "Binance USD-M perpetual",
+  "no_30_day_monitor": true,
+  "no_future_lock": true,
+  "principal_contract": [
+    500,
+    750,
+    1000,
+    1500,
+    2000,
+    3000,
+    4000,
+    4999
+  ],
+  "progress_gate": "P-C ann>=35%, DD<=20%, >=4/5 cold starts positive, >=6 actual assets and all hard gates",
+  "reference_symbol": "BTCUSDT",
+  "schema_version": 1,
+  "sharpe_hard_gate": false,
+  "single_family_contribution_gate_applicable": false,
+  "targets": {
+    "aggressive": {
+      "ann_pct": 100,
+      "equity_dd_pct": 30,
+      "gross_leverage_cap": 4.0
+    },
+    "balanced": {
+      "ann_pct": 90,
+      "equity_dd_pct": 20,
+      "gross_leverage_cap": 3.0
+    },
+    "conservative": {
+      "ann_pct": 50,
+      "equity_dd_pct": 10,
+      "gross_leverage_cap": 2.0
+    }
+  },
+  "test_protocol": {
+    "account": "continuous shared cash/margin/equity/reserve across tb01..tb12",
+    "cold_starts": [
+      "2023-07-01",
+      "2023-07-31",
+      "2023-08-30",
+      "2023-09-29",
+      "2023-10-29"
+    ],
+    "embargo": "one full signal bar plus next execution event",
+    "fit_data_start": "2023-01-01",
+    "outer_blocks": [
+      [
+        "2023-07-01",
+        "2023-09-30"
+      ],
+      [
+        "2023-10-01",
+        "2023-12-31"
+      ],
+      [
+        "2024-01-01",
+        "2024-03-31"
+      ],
+      [
+        "2024-04-01",
+        "2024-06-30"
+      ],
+      [
+        "2024-07-01",
+        "2024-09-30"
+      ],
+      [
+        "2024-10-01",
+        "2024-12-31"
+      ],
+      [
+        "2025-01-01",
+        "2025-03-31"
+      ],
+      [
+        "2025-04-01",
+        "2025-06-30"
+      ],
+      [
+        "2025-07-01",
+        "2025-09-30"
+      ],
+      [
+        "2025-10-01",
+        "2025-12-31"
+      ],
+      [
+        "2026-01-01",
+        "2026-03-31"
+      ],
+      [
+        "2026-04-01",
+        "2026-05-31"
+      ]
+    ],
+    "signal_bars": [
+      "completed_5m",
+      "completed_1h"
+    ],
+    "tb01_test_start": "2023-07-01",
+    "test_end": "2026-05-31"
+  },
+  "tradable_alts": [
+    "ETHUSDT",
+    "BNBUSDT",
+    "SOLUSDT",
+    "XRPUSDT",
+    "DOGEUSDT",
+    "LINKUSDT",
+    "LTCUSDT"
+  ]
+}

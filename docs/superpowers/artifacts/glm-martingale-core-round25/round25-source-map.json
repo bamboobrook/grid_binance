@@ -1,0 +1,80 @@
+{
+  "frozen_before_return_replay": true,
+  "primary": {
+    "allowed_translation": [
+      "只采用 reference-spread conditional-copula mispricing 作为 Martin FO/SO/TP/abort 的信号",
+      "所有 pair、marginal、copula family、threshold 只在 outer block 之前的 fit 数据确定",
+      "至少三组 disjoint pairs、六个实际成交 alt assets、一个 shared account",
+      "不导入论文选出的币、20k sizing、重叠周结果、KSS 配置或收益数字"
+    ],
+    "doi": "10.1186/s40854-024-00702-7",
+    "not_imported": {
+      "best_5m_eg_annualized_net_return_pct": 75.2,
+      "best_5m_eg_max_drawdown_pct": 30.5,
+      "best_5m_eg_sharpe": 3.77,
+      "hourly_eg_max_drawdown_range_pct": "36.6-41.6",
+      "kss_5m_max_drawdown_pct": "160.0-163.5"
+    },
+    "pdf_bytes": 3508722,
+    "pdf_sha256": "61541b3b501d0491c1a635cfe5067aba0439fc6612ee0159b678d6373e5bcecb",
+    "pdf_url": "https://jfin-swufe.springeropen.com/counter/pdf/10.1186/s40854-024-00702-7",
+    "publisher_url": "https://jfin-swufe.springeropen.com/articles/10.1186/s40854-024-00702-7",
+    "sections": [
+      {
+        "local_mapping": "BTC reference spread S_i = log(BTC)-beta_i*log(alt_i); empirical marginals; Gaussian/Student-t conditional h",
+        "section": "Implementation methodology"
+      },
+      {
+        "local_mapping": "conditional probabilities h(i|j), h(j|i) drive Martin FO/SO/TP/abort gates only",
+        "section": "Eq.31-33"
+      },
+      {
+        "local_mapping": "used only as source-mechanism map; reported returns/sharpe/assets/thresholds are not imported",
+        "section": "Tables 3/4/6"
+      }
+    ],
+    "title": "Copula-based trading of cointegrated cryptocurrency Pairs"
+  },
+  "rejected_sources": [
+    {
+      "doi": "10.1214/21-AOAS1568",
+      "finding": "上下尾依赖可不同且随时间变化；长仓与短仓需要分别看 lower/upper tail risk。",
+      "round25_use": "仅作为 train-only asymmetric-tail SO/admission veto；不得产生方向、独立收益或 leverage。",
+      "status": "conditional_enhancement_only",
+      "title": "Asymmetric tail dependence modeling, with application to cryptocurrency market data",
+      "verified_via": "OpenAlex abstract plus DOI landing metadata"
+    },
+    {
+      "doi": "10.1038/s41598-022-21192-6",
+      "finding": "pairwise 与 high-order dependency 提供互补信息。",
+      "pdf_bytes": 8730937,
+      "pdf_sha256": "f4801735106a3b747561d7c64c77ab6d773554db39dfdc71c55567e428402337",
+      "round25_use": "不立新 family；此前 correlation/MST/cluster 已多轮出现，避免换名重复。",
+      "status": "rejected_as_primary_overlap",
+      "title": "Pairwise and high-order dependencies in the cryptocurrency trading network"
+    },
+    {
+      "doi": "10.1007/s10203-021-00318-x",
+      "finding": "dynamic factor 中 stationary factor 可构造多对 long-short。",
+      "pdf_bytes": 1201489,
+      "pdf_sha256": "483272a52caa345743a6f5b3020692e4ffc419b354ad26824f7a28c1269919f8",
+      "round25_use": "不再执行；Round 18-23 已有 PC1/VECM/Johansen/dynamic-factor fingerprints。",
+      "status": "rejected_duplicate_scope",
+      "title": "Common dynamic factors for cryptocurrencies and multiple pair-trading statistical arbitrages"
+    },
+    {
+      "doi": "10.1016/j.ribaf.2025.103163",
+      "finding": "VPIN/toxicity 与 jumps 有关。",
+      "round25_use": "不执行；与 Round 23/24 F3 order-flow exhaustion 重叠，且完整 aggTrades/depth 数据仍阻断。",
+      "status": "deferred_incomplete_data_and_overlap",
+      "title": "Bitcoin wild moves: Evidence from order flow toxicity and price jumps"
+    }
+  ],
+  "schema_version": 1,
+  "secondary_tail_veto": {
+    "doi": "10.1214/21-AOAS1568",
+    "local_mapping": "train-only lower/upper empirical tail dependence may veto C1 FO/SO only after a C1 parent passes G1 P-B",
+    "status": "conditional_not_executed_because_C1_G0_failed",
+    "title": "Asymmetric tail dependence modeling, with application to cryptocurrency market data"
+  }
+}

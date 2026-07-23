@@ -1,0 +1,11 @@
+{
+  "formula_canaries_passed": true,
+  "passed": false,
+  "phase": "G0",
+  "real_window_order_delta_passed": false,
+  "reason": "strict stop before G1: no production scored C1 real-window order/rejection delta was produced",
+  "return_replays_run": 0,
+  "scored_replay_binding_passed": false,
+  "status": "blocked_engine_data_or_execution",
+  "synthetic_r1_canaries_passed": true
+}

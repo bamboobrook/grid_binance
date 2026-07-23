@@ -1,0 +1,20 @@
+{
+  "cscv_pbo_population_rule": "use exact 16-policy C1 population if G1 runs; do not use symbols/cold starts/selected subset",
+  "dsr_sensitivity_trial_counts": [
+    10000,
+    50000,
+    100000,
+    1000000
+  ],
+  "global_trial_count_for_dsr": "unknown_not_less_than_1096",
+  "neighbor_stability_required_before_R8": true,
+  "round1_23_trials": "unknown",
+  "round24_invalid_replays_counted": 16,
+  "round25_preregistered_c1_policy_population": 16,
+  "round25_return_replays_run": 0,
+  "schema_version": 1,
+  "selection_frequency_required_before_R8": true,
+  "stationary_bootstrap_ci_required_before_R8": true,
+  "visible_trial_floor": 1096,
+  "white_spa_required_before_R8": true
+}

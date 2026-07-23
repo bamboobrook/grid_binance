@@ -1,0 +1,35 @@
+{
+  "audited_commit": "9b0293af5486b161e662d46908a8ee452e905c63",
+  "audited_upstream": "9b0293af5486b161e662d46908a8ee452e905c63",
+  "audited_worktree_dirty": false,
+  "blocked_at": "G0",
+  "blocked_reason": "C1 production G0 real-window order/rejection binding not passed; strict plan stops before G1.",
+  "historical_backtest_only": true,
+  "machine_generated": true,
+  "p_b_survivors": 0,
+  "p_c_count": 0,
+  "p_d_count": 0,
+  "phase_status": {
+    "C1": "blocked_at_G0_before_return_replay",
+    "C2": "not_applicable_no_c1_pb_parent",
+    "G0": "failed_blocked_engine_execution",
+    "G1": "not_applicable_g0_failed",
+    "G2": "not_applicable_no_committed_g1_survivor",
+    "R0": "complete",
+    "R1": "complete_pre_return_canaries",
+    "R2": "complete_manifest_generated",
+    "R3": "complete_policy_trial_fingerprint_freeze",
+    "R8": "not_applicable_no_g2_survivor"
+  },
+  "registry_summary": {
+    "failed_terminal_rows": 1,
+    "failure_rows": 1,
+    "running_rows": 3,
+    "terminal_rows": 3,
+    "unique_experiments": 3,
+    "valid_shape": true
+  },
+  "return_replays_run": 0,
+  "status": "BLOCKED_ENGINE_DATA_OR_EXECUTION",
+  "strict_survivors": 0
+}

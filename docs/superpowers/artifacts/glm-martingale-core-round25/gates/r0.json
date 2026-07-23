@@ -1,0 +1,10 @@
+{
+  "branch": "glm-martingale-core-round25",
+  "git_commit": "9b0293af5486b161e662d46908a8ee452e905c63",
+  "git_dirty": false,
+  "passed": true,
+  "phase": "R0",
+  "round24_artifacts_read_only": true,
+  "round25_artifact_root": "docs/superpowers/artifacts/glm-martingale-core-round25",
+  "upstream_commit": "9b0293af5486b161e662d46908a8ee452e905c63"
+}

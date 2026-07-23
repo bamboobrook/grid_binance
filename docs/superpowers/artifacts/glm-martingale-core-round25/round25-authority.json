@@ -1,0 +1,55 @@
+{
+  "audited_commit": "9b0293af5486b161e662d46908a8ee452e905c63",
+  "authority_version": 1,
+  "conditional_enhancement": "C2_ASYMMETRIC_TAIL_SO_VETO",
+  "dirty": false,
+  "family": "C1_REFERENCE_ASSET_CONDITIONAL_COPULA_MARTIN",
+  "forbidden_claims_not_imported": [
+    "Round24 F1 16/16 valid failures",
+    "R24-F1-11 headline",
+    "Round19 41.43/6.27 candidate",
+    "Round9 finished-curve allocator",
+    "Round14 revoked candidates",
+    "Round23 single-BTC 5/5 headline",
+    "external paper 75.2 ann / 3.77 Sharpe / parameters"
+  ],
+  "frontier_progress": false,
+  "g0_blocker": "C1 production G0 real-window order/rejection binding not passed; strict plan stops before G1.",
+  "historical_backtest_only": true,
+  "latest_tiers": {
+    "aggressive": {
+      "ann_target_pct": 100,
+      "dd_cap_pct": 30,
+      "hit": false
+    },
+    "balanced": {
+      "ann_target_pct": 90,
+      "dd_cap_pct": 20,
+      "hit": false
+    },
+    "conservative": {
+      "ann_target_pct": 50,
+      "dd_cap_pct": 10,
+      "hit": false
+    }
+  },
+  "not_claimed": "all Martingale possibilities exhausted",
+  "phase_status": {
+    "C1": "blocked_at_G0_before_return_replay",
+    "C2": "not_applicable_no_c1_pb_parent",
+    "G0": "failed_blocked_engine_execution",
+    "G1": "not_applicable_g0_failed",
+    "G2": "not_applicable_no_committed_g1_survivor",
+    "R0": "complete",
+    "R1": "complete_pre_return_canaries",
+    "R2": "complete_manifest_generated",
+    "R3": "complete_policy_trial_fingerprint_freeze",
+    "R8": "not_applicable_no_g2_survivor"
+  },
+  "return_replays_run": 0,
+  "status": "BLOCKED_ENGINE_DATA_OR_EXECUTION",
+  "strict_valid_candidates": [],
+  "target_hit": false,
+  "upstream_commit": "9b0293af5486b161e662d46908a8ee452e905c63",
+  "valid_historical_prequential_no_target": false
+}

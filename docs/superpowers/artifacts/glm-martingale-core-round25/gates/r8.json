@@ -1,0 +1,21 @@
+{
+  "phase": "R8",
+  "phase_status": {
+    "C1": "blocked_at_G0_before_return_replay",
+    "C2": "not_applicable_no_c1_pb_parent",
+    "G0": "failed_blocked_engine_execution",
+    "G1": "not_applicable_g0_failed",
+    "G2": "not_applicable_no_committed_g1_survivor",
+    "R0": "complete",
+    "R1": "complete_pre_return_canaries",
+    "R2": "complete_manifest_generated",
+    "R3": "complete_policy_trial_fingerprint_freeze",
+    "R8": "not_applicable_no_g2_survivor"
+  },
+  "status": "not_applicable_no_g2_survivor",
+  "tiers": {
+    "aggressive_100_30": false,
+    "balanced_90_20": false,
+    "conservative_50_10": false
+  }
+}

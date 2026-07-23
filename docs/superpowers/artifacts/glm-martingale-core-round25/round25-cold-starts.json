@@ -1,0 +1,11 @@
+{
+  "cold_starts": [
+    "2023-07-01",
+    "2023-07-31",
+    "2023-08-30",
+    "2023-09-29",
+    "2023-10-29"
+  ],
+  "frozen_before_return_replay": true,
+  "rule": "each cold start independently initializes the same frozen policy and runs to 2026-05-31"
+}
