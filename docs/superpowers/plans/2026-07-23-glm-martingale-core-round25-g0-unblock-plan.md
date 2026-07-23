@@ -34,6 +34,35 @@ docs/superpowers/reports/2026-07-XX-glm-round25-recovery-handoff.md
 
 不得覆盖、改写或删除旧 artifact。旧 blocked row 保留在全局 trial ledger，但不写 exact failure closure。
 
+### 0.1 Git 与权限规则（覆盖旧任务书 §3.1 第 2–4 条）
+
+`clean pushed parent` 改为 `clean immutable local parent`。GitHub 网络、SSH 或安全审批不得成为 G0/G1
+历史计算的前置条件。
+
+每个 replay 启动前只硬性要求：
+
+```text
+git status --porcelain 为空
+source_commit = git rev-parse HEAD
+source_tree = git rev-parse HEAD^{tree}
+replay 期间不修改 source tree
+artifact 记录 source_commit/source_tree/dirty=false
+```
+
+远端同步协议：
+
+1. phase 启动前允许尝试一次 `git push origin HEAD:glm-martingale-core-round25`；
+2. push 成功则记录 `remote_sync_status=SYNCED` 和 remote SHA；
+3. 若因网络、SSH、GitHub 或安全审批失败，记录 stderr hash 和 `remote_sync_status=PUSH_PENDING`；
+4. `PUSH_PENDING` 不是 engine/data blocker，禁止停止、禁止重复询问授权，立即从 clean local commit 继续回放；
+5. phase 结束后提交代码/证据，再尝试一次 push；失败仍只标记 pending；
+6. 最终交接前由具备权限的 agent 统一 push exact commits，不得 rebase、amend 或改变已绑定 artifact 的 SHA；
+7. 如果最终仍无法联网，可以交付完整本地结果并明确 pending commits，但不能把策略状态写成 blocked。
+
+production implementation 基线 `1e658b4062766b0a02f69766a293abaebdc8f2a3` 已同步至
+`origin/glm-martingale-core-round25`。GLM 应先拉取该分支，再从最新 clean HEAD 启动 recovery；文档提交导致的
+HEAD 前移不构成不一致，也不需要再次请求用户授权。
+
 ## 1. 不得放松的硬约束
 
 1. 收益引擎只能是 C1/C2 中的 Martin FO、loss-after-add SO、TP/reduce/abort；
@@ -284,7 +313,8 @@ cargo run --release -p r24-research --bin r25_execute -- \
 - G1 policy count 等于冻结后的 non-inert population；
 - 所有失败都可区分 invalid blocked 与 valid strategy failure；
 - authority、state、registry、traces 和 report 的状态一致；
-- tests 通过、commit 已 push、worktree clean。
+- tests 通过、worktree clean、artifact 绑定 immutable local commit；
+- `remote_sync_status` 只能是 `SYNCED` 或 `PUSH_PENDING`，pending 不影响 replay validity。
 
 Git 每次提交 body 必须包含：
 
@@ -307,7 +337,8 @@ Git 每次提交 body 必须包含：
 - [ ] 跑完冻结后的全部 G1 policies、12 blocks 和真实共享账户
 - [ ] 有 P-B 则继续 C2/G2/R8；无 P-B 才形成 valid no-target
 - [ ] 生成 recovery authority/state/registry/ledger/traces/handoff
-- [ ] tests、validator、commit、push、clean worktree
+- [ ] tests、validator、local commit、clean worktree
+- [ ] 尝试远端同步；失败写 PUSH_PENDING，但不得阻止或回滚回放
 
 **停止条件**：只有完成全部适用阶段，或同一外部阻塞经过至少三次可复现修复仍无法解除，才能停止并交接。
 不得再次在 `return_replays_run=0` 且生产 replay 从未调用的状态下宣布 Round 25 执行完成。
