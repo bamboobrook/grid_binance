@@ -9,7 +9,27 @@
   "historical_prequential_only": true,
   "round1_22_trials": "unknown",
   "round23_visible_trial_floor": 1080,
-  "round24_executed_trials": 0,
+  "round24_executed_trials": 16,
+  "round24_g1_pb_survivors": 0,
+  "round24_g1_terminal_failed": 16,
   "round24_preregistered_policy_templates": 52,
+  "round24_trial_ids": [
+    "R24-F1-01",
+    "R24-F1-02",
+    "R24-F1-03",
+    "R24-F1-04",
+    "R24-F1-05",
+    "R24-F1-06",
+    "R24-F1-07",
+    "R24-F1-08",
+    "R24-F1-09",
+    "R24-F1-10",
+    "R24-F1-11",
+    "R24-F1-12",
+    "R24-F1-13",
+    "R24-F1-14",
+    "R24-F1-15",
+    "R24-F1-16"
+  ],
   "rule": "DSR trial count may never be below the historical global ledger floor"
 }

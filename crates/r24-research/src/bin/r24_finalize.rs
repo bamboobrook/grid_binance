@@ -165,8 +165,9 @@ fn correct_and_verify_trace_paths(
             continue;
         };
         for trace in traces.values_mut() {
-            let direct = repo.join(&trace.path);
-            let resolved = if direct.exists() {
+            let stored_path = Path::new(&trace.path);
+            let direct = repo.join(stored_path);
+            let resolved = if !stored_path.is_absolute() && direct.exists() {
                 direct
             } else {
                 let index = trace.path.find("traces/").context("trace suffix absent")?;

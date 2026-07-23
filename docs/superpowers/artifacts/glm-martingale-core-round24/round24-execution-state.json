@@ -1,25 +1,38 @@
 {
+  "audited_commit": "470769921a5d3823dd8183c530c93d479988945a",
+  "best_strict_candidate": null,
+  "dirty": false,
   "machine_derived": true,
-  "phases": {
-    "E1": "pending",
-    "F1": "pending",
-    "F2": "pending",
-    "F3": "pending",
-    "G0": "pending",
-    "G1": "pending",
-    "G2": "pending",
+  "p_c_count": 0,
+  "p_d_count": 0,
+  "phase_status": {
+    "E1": "not_applicable_no_parent",
+    "F1": "complete_g1_all_failed",
+    "F2": "not_applicable_no_two_parents",
+    "F3_M1": "blocked_incomplete_data",
+    "F3_M2": "blocked_incomplete_data",
+    "G0": "complete",
+    "G1": "complete_no_survivor",
+    "G2": "not_applicable_no_survivor",
     "R0": "complete",
-    "R1": "pending",
-    "R2": "pending",
-    "R3": "pending",
-    "R8": "pending"
+    "R1": "complete",
+    "R2": "complete_for_F1_F3_data_blocked",
+    "R3": "complete",
+    "R8": "complete_no_candidate"
   },
   "registry": {
-    "running_rows": 1,
-    "terminal_rows": 1,
-    "unique_experiments": 1,
+    "running_rows": 19,
+    "terminal_rows": 19,
+    "unique_experiments": 19,
     "valid": true,
     "violations": []
   },
-  "status": "BLOCKED_ENGINE_DATA_OR_EXECUTION"
+  "status": "BLOCKED_ENGINE_DATA_OR_EXECUTION",
+  "strict_survivors": 0,
+  "unresolved_blockers": [
+    "F3-M1 metrics archives start 2023-07-01 instead of required 2023-01-01",
+    "F3-M2 bookDepth lacks full six-asset protocol and aggTrades ends 2023-07-15",
+    "all 16 F1 policies failed G1 P-B; no eligible E1/F2/G2 parent"
+  ],
+  "upstream_commit": "470769921a5d3823dd8183c530c93d479988945a"
 }
