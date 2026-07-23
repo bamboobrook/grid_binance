@@ -1,0 +1,20 @@
+[package]
+name = "r24-research"
+version = "0.1.0"
+edition.workspace = true
+description = "Round 24 frozen protocol, data manifest, preregistration, and causal Martin research"
+
+[lib]
+name = "r24_research"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow.workspace = true
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+rusqlite = { version = "0.32", features = ["bundled"] }
+r24-engine = { path = "../r24-engine" }
+r24-registry = { path = "../r24-registry" }
+

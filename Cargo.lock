@@ -1896,6 +1896,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "r24-research"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "r24-engine",
+ "r24-registry",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "radium"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
