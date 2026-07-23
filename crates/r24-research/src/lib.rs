@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 pub mod g0;
+pub mod replay;
 pub mod residual;
 
 pub const UNIVERSE: [&str; 8] = [

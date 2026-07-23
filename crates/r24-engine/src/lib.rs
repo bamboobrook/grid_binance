@@ -23,7 +23,7 @@ pub enum PositionMode {
 }
 
 impl PositionMode {
-    fn sign(self) -> f64 {
+    pub fn sign(self) -> f64 {
         match self {
             Self::Long => 1.0,
             Self::Short => -1.0,
@@ -189,6 +189,12 @@ impl SharedAccount {
         }
         self.groups.insert(group.group_id.clone(), group);
         Ok(())
+    }
+
+    pub fn remove_group(&mut self, group_id: &str) {
+        if !self.positions.keys().any(|key| key.owner_group == group_id) {
+            self.groups.remove(group_id);
+        }
     }
 
     pub fn request_next_so(&mut self, group_id: &str, gross: f64) -> Result<()> {
@@ -627,6 +633,26 @@ impl SharedAccount {
         }
         let notional = quantity * request.price;
         let reserve = self.order_reserve(&request.key, notional);
+        let hypothetical_leverage = (self.gross_notional() + notional) / self.equity().max(1e-9);
+        if hypothetical_leverage > self.config.max_effective_leverage {
+            self.trace(
+                request.timestamp,
+                "rejection",
+                "leverage_cap",
+                Some(&request.order_id),
+                Some(&request.group_id),
+                Some(&request.key.symbol),
+                Some(quantity),
+                Some(hypothetical_leverage),
+                "hypothetical effective leverage exceeds frozen cap",
+            );
+            return Ok(FillOutcome {
+                accepted: false,
+                filled_quantity: 0.0,
+                fee: 0.0,
+                reason: "leverage_cap".into(),
+            });
+        }
         if reserve > self.available_quote() {
             self.trace(
                 request.timestamp,

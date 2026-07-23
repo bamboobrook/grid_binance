@@ -271,6 +271,10 @@ impl Launcher {
         let elapsed = timer.elapsed().as_secs_f64();
         let end = Utc::now();
         let traces = collect_traces(trace_dir);
+        let terminal_evidence = fs::read(trace_dir.join("evidence.json"))
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<Evidence>(&bytes).ok())
+            .unwrap_or_else(|| running.evidence.clone());
         let complete = status.success() && traces.is_ok();
         let terminal_status = if complete {
             TerminalStatus::Complete
@@ -298,6 +302,7 @@ impl Launcher {
             wall_seconds: Some(elapsed.max(0.000_001)),
             peak_rss_kb: Some(peak_rss_kb),
             traces: traces.ok(),
+            evidence: terminal_evidence,
             ..running
         };
         self.registry.append_terminal(&terminal, failure.as_ref())?;
@@ -407,8 +412,9 @@ fn validate_row(row: &RegistryRow, failures: &[FailureRow], violations: &mut Vec
     if row.evidence.stitched_days < 365 && row.phase != "R0" {
         violations.push(format!("{id}:short_window_annualization"));
     }
-    if row.evidence.loaded_assets >= 5
-        && row.evidence.actual_filled_assets > 0
+    if row.terminal_status == Some(TerminalStatus::Complete)
+        && matches!(row.phase.as_str(), "G1" | "G2" | "R8")
+        && row.evidence.loaded_assets >= 5
         && row.evidence.actual_filled_assets < 5
     {
         violations.push(format!("{id}:actual_asset_gate_failed"));
@@ -569,6 +575,7 @@ pub fn run_all_canaries() -> BTreeMap<String, bool> {
             .insert("machine_state".into(), "HANDWRITTEN".into());
     });
     inject("r24_loaded_not_actual_assets", |r, _, _| {
+        r[1].phase = "G1".into();
         r[1].evidence.loaded_assets = 8;
         r[1].evidence.actual_filled_assets = 4;
     });
