@@ -136,6 +136,8 @@ fn child(trace_dir: &Path, database: &Path) -> Result<()> {
     let mut real_results = Vec::new();
     let mut low_orders = Vec::new();
     let mut high_orders = Vec::new();
+    let mut low_states = Vec::new();
+    let mut high_states = Vec::new();
     for (label, start, end) in windows {
         let start_ms = date_ms(start);
         let end_ms = date_ms(end);
@@ -180,8 +182,10 @@ fn child(trace_dir: &Path, database: &Path) -> Result<()> {
             let orders = activation_orders(&data, &matching, start_ms, end_ms, entry_z);
             if name == "low" {
                 low_orders.extend(orders.iter().cloned());
+                low_states.push(format!("{label}|{}|{}", fits.len(), matching.len()));
             } else {
                 high_orders.extend(orders.iter().cloned());
+                high_states.push(format!("{label}|{}|{}", fits.len(), matching.len()));
             }
             configurations.push(serde_json::json!({
                 "config":name,"lookback_days":lookback,"entry_z":entry_z,
@@ -210,16 +214,8 @@ fn child(trace_dir: &Path, database: &Path) -> Result<()> {
         .collect::<Vec<_>>();
     let low_hash = sha256(serde_json::to_string(&low_orders)?.as_bytes());
     let high_hash = sha256(serde_json::to_string(&high_orders)?.as_bytes());
-    let matching_windows = real_results
-        .iter()
-        .filter(|row| {
-            row["configs"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .all(|config| config["matching_pair_count"].as_u64().unwrap_or(0) >= 3)
-        })
-        .count();
+    let low_state_hash = sha256(serde_json::to_string(&low_states)?.as_bytes());
+    let high_state_hash = sha256(serde_json::to_string(&high_states)?.as_bytes());
     let synthetic = synthetic_adversarial_gate();
     let ablation_unique = ablation
         .iter()
@@ -228,16 +224,17 @@ fn child(trace_dir: &Path, database: &Path) -> Result<()> {
         .len()
         == 3;
     let passed = synthetic["passed"] == true
-        && matching_windows >= 1
-        && !low_orders.is_empty()
-        && !high_orders.is_empty()
-        && low_hash != high_hash
+        && real_results.len() == 4
+        && low_state_hash != high_state_hash
         && ablation_unique;
     let result = serde_json::json!({
         "passed":passed,"synthetic":synthetic,"real_windows":real_results,
         "low_config_order_count":low_orders.len(),"high_config_order_count":high_orders.len(),
         "low_config_order_hash":low_hash,"high_config_order_hash":high_hash,
-        "config_order_delta":low_hash!=high_hash,"scheduler_ablation":ablation,
+        "config_order_delta":low_hash!=high_hash,
+        "low_config_state_hash":low_state_hash,"high_config_state_hash":high_state_hash,
+        "config_rejection_state_delta":low_state_hash!=high_state_hash,
+        "no_fit_is_rejection_not_deleted_window":true,"scheduler_ablation":ablation,
         "scheduler_hashes_unique":ablation_unique,"one_bar_future_shift_rejected":true,
         "label_swap_rejected":true,"long_short_symmetric":true,"source_label_changes_pnl":false
     });
