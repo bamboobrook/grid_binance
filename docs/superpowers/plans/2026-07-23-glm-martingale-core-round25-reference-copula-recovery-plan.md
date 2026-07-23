@@ -1,5 +1,9 @@
 # GLM Martingale Core Round 25：Reference-Asset Conditional-Copula 多对马丁恢复计划
 
+> **已被替代（2026-07-23）**：本任务书的 G0 执行门导致未实现生产回放时直接终止。后续唯一任务书为
+> `docs/superpowers/plans/2026-07-23-glm-martingale-core-round25-g0-unblock-plan.md`。
+> 本文件仅保留为冻结的原始预注册记录，不得继续据此启动或判定 Round 25。
+
 制定日期：2026-07-23。
 
 本文件是 Round 25 唯一任务书。直接运行历史 prequential backtest，不设置 30 天监控，不等待新增行情，
