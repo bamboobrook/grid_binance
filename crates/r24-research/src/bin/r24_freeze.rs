@@ -212,6 +212,7 @@ fn scan_archives(repo: &Path, output: &Path) -> Result<serde_json::Value> {
         let mut keys = BTreeSet::new();
         let mut symbols = BTreeSet::new();
         let mut dates = Vec::new();
+        let mut excluded_duplicate_files = 0_u64;
         for path in files {
             let name = path.file_name().unwrap().to_string_lossy();
             let symbol = path
@@ -227,12 +228,16 @@ fn scan_archives(repo: &Path, output: &Path) -> Result<serde_json::Value> {
                 .to_string();
             let key = format!("{kind}|{symbol}|{date}");
             let unique = keys.insert(key.clone());
+            if !unique {
+                excluded_duplicate_files += 1;
+                continue;
+            }
             symbols.insert(symbol.clone());
             dates.push(date.clone());
             let row = serde_json::json!({
                 "key":key,"kind":kind,"symbol":symbol,"date":date,
                 "path":path.strip_prefix(repo).unwrap_or(&path),"size_bytes":fs::metadata(&path)?.len(),
-                "sha256":sha_file(&path)?,"unique_key":unique,
+                "sha256":sha_file(&path)?,"unique_key":true,
                 "sidecar_url":format!("https://data.binance.vision/data/futures/um/daily/{kind}/{symbol}/{name}.CHECKSUM"),
                 "sidecar_local":false,"status":"blocked_sidecar_missing"
             });
@@ -242,6 +247,7 @@ fn scan_archives(repo: &Path, output: &Path) -> Result<serde_json::Value> {
         dates.sort();
         summary.insert(kind.to_string(), serde_json::json!({
             "archive_count":keys.len(),"symbols":symbols,"min_date":dates.first(),"max_date":dates.last(),
+            "excluded_duplicate_files":excluded_duplicate_files,
             "all_sidecars_present":false,"status":"blocked_incomplete_data"
         }));
     }
