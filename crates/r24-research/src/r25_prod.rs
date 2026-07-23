@@ -252,6 +252,8 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
         config.end_ms + frequency_ms + 60_000,
         frequency_ms,
     )?;
+    let close_price_maps = build_price_maps(&data, false);
+    let fill_price_maps = build_price_maps(&data, true);
     let mut funding = load_funding(
         &config.funding_db,
         &symbols,
@@ -321,8 +323,12 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
                 }),
             );
         }
-        let prices_close = prices_at(&data, bar.signal_close_ms, false);
-        let prices_fill = prices_at(&data, bar.fill_ms, true);
+        let Some(prices_close) = close_price_maps.get(&bar.signal_close_ms) else {
+            continue;
+        };
+        let Some(prices_fill) = fill_price_maps.get(&bar.fill_ms) else {
+            continue;
+        };
         if !prices_close.contains_key(R25_REFERENCE_SYMBOL)
             || !prices_fill.contains_key(R25_REFERENCE_SYMBOL)
         {
@@ -546,15 +552,11 @@ pub fn run_r25_c1_replay(config: &R25ReplayConfig) -> Result<R25ReplayEvidence> 
             }
         }
     }
-    let final_prices = data
-        .iter()
-        .filter_map(|(symbol, bars)| {
-            bars.iter()
-                .rev()
-                .find(|bar| bar.fill_ms < config.end_ms)
-                .map(|bar| (symbol.clone(), bar.fill_open))
-        })
-        .collect::<BTreeMap<_, _>>();
+    let final_prices = fill_price_maps
+        .range(..config.end_ms)
+        .next_back()
+        .map(|(_, prices)| prices.clone())
+        .unwrap_or_default();
     for group in active.values().cloned().collect::<Vec<_>>() {
         let _ = close_group(
             &mut account,
@@ -864,23 +866,23 @@ fn empirical_cdf(sorted: &[f64], value: f64) -> f64 {
     ((rank as f64 + 0.5) / (sorted.len() as f64 + 1.0)).clamp(1e-6, 1.0 - 1e-6)
 }
 
-fn prices_at(
+fn build_price_maps(
     data: &BTreeMap<String, Vec<SignalBar>>,
-    timestamp: i64,
     fill_open: bool,
-) -> BTreeMap<String, f64> {
-    let mut output = BTreeMap::new();
+) -> BTreeMap<i64, BTreeMap<String, f64>> {
+    let mut output = BTreeMap::<i64, BTreeMap<String, f64>>::new();
     for (symbol, bars) in data {
-        let found = if fill_open {
-            bars.iter().find(|bar| bar.fill_ms == timestamp)
-        } else {
-            bars.iter().find(|bar| bar.signal_close_ms == timestamp)
-        };
-        if let Some(bar) = found {
-            output.insert(
-                symbol.clone(),
-                if fill_open { bar.fill_open } else { bar.close },
-            );
+        for bar in bars {
+            let timestamp = if fill_open {
+                bar.fill_ms
+            } else {
+                bar.signal_close_ms
+            };
+            let price = if fill_open { bar.fill_open } else { bar.close };
+            output
+                .entry(timestamp)
+                .or_default()
+                .insert(symbol.clone(), price);
         }
     }
     output
