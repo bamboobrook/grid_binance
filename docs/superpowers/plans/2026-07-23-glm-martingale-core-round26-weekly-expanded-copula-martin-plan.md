@@ -2,6 +2,10 @@
 
 制定日期：2026-07-23。
 
+执行状态（2026-07-24 独立复核）：`READY_NOT_EXECUTED`。远端、当前 worktree、已登记 worktrees 与
+`artifacts-local/` 均未发现晚于审计提交 `12631058` 的 Round 25 修复或 Round 26 执行证据。本文件仍是下一步
+唯一任务书，不得在它尚未执行时另起 Round 27 或重复 Round 25 参数。
+
 本任务书是 Round 26 的唯一执行权威。目标不是继续调 Round 25R 的无效结果，而是保留已经修好的账户引擎，
 替换错误的统计模型门，并执行此前没有完成过的 29-alt weekly reference-copula Martin fingerprint。
 
