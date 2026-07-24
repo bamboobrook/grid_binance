@@ -6,6 +6,7 @@ pub mod g0;
 pub mod r25;
 pub mod r25_corrected;
 pub mod r25_prod;
+pub mod r26;
 pub mod replay;
 pub mod residual;
 
