@@ -867,6 +867,8 @@ def run_validation(args: argparse.Namespace) -> None:
             checked_legs += 1
             for field in fields:
                 left, right = leg.get(field), expected.get(field)
+                if left is None and isinstance(right, float) and not math.isfinite(right):
+                    continue
                 if left is None or right is None:
                     if left != right:
                         violations.append(f"leg_null:{frequency}:{formation}:{anchor}:{leg['symbol']}:{field}")

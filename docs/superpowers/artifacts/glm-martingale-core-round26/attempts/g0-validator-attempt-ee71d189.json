@@ -1,0 +1,12 @@
+{
+  "account_validator_passed": true,
+  "attempt": "g0-validator-attempt-ee71d189",
+  "failure_class": "validator_nonfinite_representation",
+  "model_max_numeric_error": 0.0,
+  "model_validator_passed": false,
+  "model_violations": 12,
+  "raw_root": "artifacts-local/round26/ee71d189ba7b2119bbd400e246870a3306a33d10",
+  "reason": "production JSON correctly serialized non-finite half-life as null while the independent in-memory recomputation retained inf",
+  "remediation": "treat snapshot null and independently recomputed non-finite diagnostic as the same fail-closed value",
+  "status": "SUPERSEDED_VALIDATOR_ATTEMPT_PRESERVED"
+}
