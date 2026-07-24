@@ -183,11 +183,17 @@ fn finalize(
     } else {
         "VALID_G0_ONLY"
     };
-    let source_commit = git(repo, &["rev-parse", "HEAD"])?;
-    let source_tree = git(repo, &["rev-parse", "HEAD^{tree}"])?;
+    let validator_commit = git(repo, &["rev-parse", "HEAD"])?;
+    let source_commit = raw
+        .file_name()
+        .and_then(|value| value.to_str())
+        .context("raw root must end in replay source commit")?
+        .to_string();
+    let tree_spec = format!("{source_commit}^{{tree}}");
+    let source_tree = git(repo, &["rev-parse", &tree_spec])?;
     let authority = serde_json::json!({
         "schema_version":1,"fingerprint":FINGERPRINT,"status":status,"phase":phase,
-        "source_commit":source_commit,"source_tree":source_tree,
+        "source_commit":source_commit,"source_tree":source_tree,"validator_commit":validator_commit,
         "model_validator_passed":model["passed"],"account_validator_passed":account["passed"],
         "round25r_authority":"MATERIALLY_INCOMPLETE_INVALID_RESULTS",
         "p_b_survivors":g2.as_ref().and_then(|row| row["p_b_survivors"].as_array()).cloned().unwrap_or_default(),

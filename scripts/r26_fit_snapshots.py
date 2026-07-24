@@ -823,6 +823,11 @@ def validator_matching(edges: list[dict[str, Any]]) -> list[str]:
     return best[2]
 
 
+def validator_leg_task(task: tuple[str, str, int, int]) -> tuple[tuple[str, str, int, int], dict[str, Any]]:
+    frequency, symbol, anchor, formation = task
+    return task, validator_diagnostics(frequency, symbol, anchor, formation)
+
+
 def run_validation(args: argparse.Namespace) -> None:
     global SIGNALS, LIQUIDITY, FUNDING, FILTERS, OUTPUT_ROOT
     OUTPUT_ROOT = Path(args.artifact_root)
@@ -844,6 +849,15 @@ def run_validation(args: argparse.Namespace) -> None:
     FILTERS, _ = read_exchange_info(EXCHANGE_INFO)
     FUNDING, _ = load_funding(Path(args.funding_data))
     SIGNALS, LIQUIDITY, _ = load_market(Path(args.market_data), frequencies, roll_anchors, formations)
+    leg_tasks = sorted({
+        (snapshot["frequency"], leg["symbol"], int(snapshot["roll_anchor_ms"]), int(snapshot["formation_days"]))
+        for _, snapshot in snapshots for leg in snapshot["legs"]
+    })
+    if args.workers > 1:
+        with get_context("fork").Pool(args.workers) as pool:
+            independent_leg_results = dict(pool.imap_unordered(validator_leg_task, leg_tasks, chunksize=1))
+    else:
+        independent_leg_results = dict(validator_leg_task(task) for task in leg_tasks)
     fields = [
         "sample_count", "sample_coverage", "intercept", "beta", "residual_sigma",
         "eg_coint_statistic", "eg_coint_p_value", "residual_adf_statistic",
@@ -862,7 +876,7 @@ def run_validation(args: argparse.Namespace) -> None:
             violations.append(f"top20:{frequency}:{formation}:{anchor}")
         independent_legs = {}
         for leg in snapshot["legs"]:
-            expected = validator_diagnostics(frequency, leg["symbol"], anchor, formation)
+            expected = independent_leg_results[(frequency, leg["symbol"], anchor, formation)]
             independent_legs[leg["symbol"]] = expected
             checked_legs += 1
             for field in fields:
