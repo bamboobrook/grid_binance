@@ -1,0 +1,10 @@
+{
+  "attempt": "g0-attempt-6cb00134",
+  "exit_code": 1,
+  "failure_class": "implementation_json_canonicalization",
+  "failure_point": "build_snapshot payload_sha256",
+  "raw_root": "artifacts-local/round26/6cb00134bdbff48c18eb20eb840b78b7db3afb10",
+  "reason": "non-finite rejected-leg diagnostics were canonicalized before JSON sanitization",
+  "remediation": "sanitize the complete snapshot payload before canonical hashing and rerun the unchanged G0 population",
+  "status": "SUPERSEDED_REPLAY_ATTEMPT_PRESERVED"
+}

@@ -723,6 +723,7 @@ def build_snapshot(task: tuple[str, int, int]) -> dict[str, Any]:
         "reference": REFERENCE, "eligible_universe": universe,
         "liquidity": liquidity_rows, "legs": public_legs, "selector_arms": arms,
     }
+    payload = sanitize(payload)
     payload["payload_sha256"] = hashlib.sha256(canonical_bytes(payload)).hexdigest()
     digest = atomic_json(path, payload)
     return {"name": name, "path": str(path), "sha256": digest, "resumed": False}
