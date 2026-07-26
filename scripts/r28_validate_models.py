@@ -219,31 +219,36 @@ def validate_c0_snapshot(path: str, digest: str) -> dict[str, Any]:
     snapshot = json.loads(payload)
     anchor = int(snapshot["roll_anchor_ms"]); frequency = snapshot["frequency"]
     if snapshot["eligible_universe"] != independent_top20(anchor, 21): violations.append("top20")
-    checked = 0; maximum_error = 0.0
+    checked = 0; maximum_error = 0.0; beta_rejects = 0
     arm = snapshot["arms"].get("C0-RAW", {})
     for pair in arm.get("exact_matching", []):
         start = anchor - 21 * DAY_MS
         _, btc, left, right = aligned_three(frequency, ("BTCUSDT", pair["left"], pair["right"]), start, anchor)
         residuals = []
+        beta_valid = True
         for symbol_values, leg in ((left, pair["left_leg"]), (right, pair["right_leg"])):
             design = np.column_stack((np.ones(symbol_values.size), np.log(symbol_values)))
             intercept, beta = np.linalg.lstsq(design, np.log(btc), rcond=None)[0]
             residual = np.log(btc) - intercept - beta * np.log(symbol_values)
             eg_p = float(coint(np.log(btc), np.log(symbol_values), trend="c", autolag="aic")[1])
             maximum_error = max(maximum_error, abs(float(beta) - leg["beta"]), abs(float(intercept) - leg["intercept"]), abs(eg_p - leg["eg_coint_p_value"]))
-            if not (math.isfinite(beta) and beta > 0): violations.append("beta")
+            beta_valid = beta_valid and math.isfinite(beta) and beta > 0
             residuals.append(residual)
         uniforms = np.column_stack((empirical(residuals[0]), empirical(residuals[1])))
         fit = independent_copula(uniforms); stored = pair["copula"]
         if fit["family"] != stored["family"] or fit["nu"] != stored["nu"]: violations.append("copula_family")
         maximum_error = max(maximum_error, abs(fit["rho"] - stored["rho"]), abs(fit["aic"] - stored["aic"]))
-        left_weight = pair["left_leg"]["beta"] / (pair["left_leg"]["beta"] + pair["right_leg"]["beta"])
-        if not 0 < left_weight < 1: violations.append("beta_weight")
+        if beta_valid:
+            left_weight = pair["left_leg"]["beta"] / (pair["left_leg"]["beta"] + pair["right_leg"]["beta"])
+            if not 0 < left_weight < 1: violations.append("beta_weight")
+        else:
+            beta_rejects += 1
         checked += 1
     selected_ids = [row["pair_id"] for row in arm.get("exact_matching", [])]
     if len(selected_ids) != len(set(selected_ids)): violations.append("matching_duplicate")
     if selected_ids != independent_matching(arm.get("pair_graph", [])): violations.append("matching_not_optimal")
-    return {"path": path, "checked_pairs": checked, "max_error": maximum_error, "violations": violations}
+    return {"path": path, "checked_pairs": checked, "invalid_beta_pair_rejects": beta_rejects,
+            "max_error": maximum_error, "violations": violations}
 
 
 def _threshold_fit_independent(residual: np.ndarray, variant: str) -> dict[str, Any] | None:
@@ -424,6 +429,7 @@ def main() -> None:
         with get_context("fork").Pool(arguments.workers) as pool:
             checked = list(pool.starmap(validate_c0_snapshot, selected, chunksize=1))
         c0 = {"snapshot_count": len(checked), "checked_pairs": sum(row["checked_pairs"] for row in checked),
+              "invalid_beta_pair_rejects": sum(row["invalid_beta_pair_rejects"] for row in checked),
               "max_error": max((row["max_error"] for row in checked), default=0.0),
               "violations": [item for row in checked for item in row["violations"]]}
         atomic_json(cache, c0)
@@ -454,6 +460,7 @@ def main() -> None:
                  )
              ),
              "checked_copula_pairs": c0["checked_pairs"], "checked_threshold_pairs": threshold["checked_pairs"],
+             "checked_copula_invalid_beta_pair_rejects": c0.get("invalid_beta_pair_rejects", 0),
              "c0_snapshot_count": c0["snapshot_count"], "threshold_snapshot_count": threshold["snapshot_count"],
              "threshold_pair_fit_denominator": threshold["pair_fit_denominator"], "threshold_finite_fit_count": threshold["finite_fit_count"],
              "threshold_bh_pass_count": threshold["bh_pass_count"], "max_numeric_error": max(c0["max_error"], threshold["max_error"]),

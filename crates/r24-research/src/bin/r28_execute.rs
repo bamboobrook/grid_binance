@@ -758,6 +758,7 @@ fn generate_c0_signals(
         censored: u64,
         first: Option<SignalRow>,
         last: Option<SignalRow>,
+        invalid_beta_pair_rejects: u64,
     }
     let mut outputs = Vec::new();
     for alpha in [0.10, 0.20] {
@@ -775,6 +776,7 @@ fn generate_c0_signals(
             censored: 0,
             first: None,
             last: None,
+            invalid_beta_pair_rejects: 0,
         });
     }
     for snapshot in snapshots.iter().filter(|row| row.frequency == frequency) {
@@ -783,6 +785,9 @@ fn generate_c0_signals(
         };
         for pair in &arm.exact_matching {
             if pair.left_leg.beta <= 0.0 || pair.right_leg.beta <= 0.0 {
+                for output in &mut outputs {
+                    output.invalid_beta_pair_rejects += 1;
+                }
                 continue;
             }
             let points = c0_signal_points(
@@ -854,6 +859,7 @@ fn generate_c0_signals(
             "path":output.path.strip_prefix(repo).unwrap_or(&output.path),"sha256":sha256_bytes(&bytes),"bytes":bytes.len(),
             "stored_signal_rows":output.rows,"causal_intent_count":output.onsets,"completed_excursion_count":output.completed,
             "open_censored_count":output.censored,"open_censored_ge_completed":output.onsets>=output.completed,
+            "invalid_beta_pair_rejects":output.invalid_beta_pair_rejects,
             "first":output.first,"last":output.last,"outer_return_read":false});
         write_json(
             raw.join("signal-intent-manifests")
