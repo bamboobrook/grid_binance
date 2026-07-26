@@ -136,6 +136,8 @@ def historical_index() -> dict[str, Any]:
     for path in sorted(root.rglob("*")):
         if not path.is_file() or path.stat().st_size > 10_000_000:
             continue
+        if "glm-martingale-core-round27" in path.parts:
+            continue
         if path.suffix not in {".json", ".jsonl", ".md"}:
             continue
         try:

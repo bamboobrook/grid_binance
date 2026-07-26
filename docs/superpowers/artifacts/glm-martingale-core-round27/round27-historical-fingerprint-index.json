@@ -1830,21 +1830,9 @@
       "mentions_round27_exact": false,
       "path": "docs/superpowers/artifacts/glm-martingale-core-round26/round26-protocol.json",
       "sha256": "6ab53112cf6ca7cb96546a7d8e3aebe4b78b6cfb86b07b58bfa0ef8115253989"
-    },
-    {
-      "mentions_pbd_three_component": false,
-      "mentions_round27_exact": true,
-      "path": "docs/superpowers/artifacts/glm-martingale-core-round27/round27-protocol.json",
-      "sha256": "1ee560385bf8c8b8ae26c4d363275287561b51d3b0c174ecde3689f77d0fb9d8"
-    },
-    {
-      "mentions_pbd_three_component": false,
-      "mentions_round27_exact": false,
-      "path": "docs/superpowers/artifacts/glm-martingale-core-round27/round27-source-manifest.json",
-      "sha256": "bc6420c91c831cd59ae8b27c36ae31bcf5e638db25976e2bfc29ba6fbe165b69"
     }
   ],
-  "entry_count": 307,
+  "entry_count": 305,
   "exact_pbd_fingerprint_preexisting": false,
   "recursive_scope": "docs/superpowers/artifacts/glm-martingale-core-round1..26",
   "schema_version": 1
