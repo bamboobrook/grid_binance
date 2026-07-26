@@ -1,0 +1,21 @@
+{
+  "account_validator_passed": true,
+  "activation_survivors": [
+    "C0-5m-21d-RAW",
+    "C0-1h-21d-RAW"
+  ],
+  "btc_reference_only": true,
+  "checked_pair_count": 243,
+  "checked_pbd_pair_count": 16,
+  "model_validator_passed": true,
+  "outer_return_used_for_selection": false,
+  "p_b_survivors": [],
+  "phase": "g0-g3",
+  "round26_corrected_status": "MATERIALLY_INCOMPLETE_INVALID_FAMILY_CLOSURE",
+  "schema_version": 1,
+  "source_commit": "aaa02fda4e588ced0359318465ee682c677ae00c",
+  "source_tree": "42c605916e4419e4cd556125e82dc0609205f95f",
+  "status": "VALID_HISTORICAL_PREQUENTIAL_NO_PB",
+  "target_hit": false,
+  "validator_commit": "aaa02fda4e588ced0359318465ee682c677ae00c"
+}

@@ -1,0 +1,12 @@
+{
+  "account_validator": true,
+  "d0": "terminal",
+  "g0": "terminal",
+  "g1": "terminal",
+  "g2": "terminal",
+  "g3": "not_applicable",
+  "model_validator": true,
+  "r0": "terminal",
+  "source_commit": "aaa02fda4e588ced0359318465ee682c677ae00c",
+  "status": "VALID_HISTORICAL_PREQUENTIAL_NO_PB"
+}

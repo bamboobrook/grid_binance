@@ -1,0 +1,12 @@
+{
+  "engine_trace": {
+    "path": "artifacts-local/round27/aaa02fda4e588ced0359318465ee682c677ae00c/traces/g2-C0-1h-21d-RAW-A0.20-SO0.75.jsonl",
+    "rows": 281329,
+    "sha256": "6b7543eba88b41d8ce253d042c2458220a1997a9950690a0ef06c2b4a8d1a7ce"
+  },
+  "risk_rle": {
+    "bytes": 16920948,
+    "path": "artifacts-local/round27/aaa02fda4e588ced0359318465ee682c677ae00c/g2/risk-rle/C0-1h-21d-RAW-A0.20-SO0.75.jsonl",
+    "sha256": "63690a096243430f4c50ff640fef15b991b32de0b55efda635d0821327b08f5e"
+  }
+}

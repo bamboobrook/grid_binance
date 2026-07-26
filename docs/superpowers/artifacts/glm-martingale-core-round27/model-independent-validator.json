@@ -1,0 +1,30 @@
+{
+  "checked_leg_count": 7166,
+  "checked_pair_count": 243,
+  "checked_pbd_pair_count": 16,
+  "max_numeric_error": 2.2737367544323206e-13,
+  "passed": true,
+  "production_fitter_imported": false,
+  "raw_database_read": true,
+  "runtime": {
+    "argv": [
+      "scripts/r27_validate_models.py",
+      "--artifact-root",
+      "artifacts-local/round27/aaa02fda4e588ced0359318465ee682c677ae00c",
+      "--workers",
+      "8",
+      "--resume"
+    ],
+    "end_epoch": 1785055895.7223775,
+    "exit_code": 0,
+    "peak_rss_kib": 1515888,
+    "pid": 2,
+    "start_epoch": 1785054817.4685683,
+    "wall_seconds": 1078.2538092136383,
+    "workers": 8
+  },
+  "schema_version": 1,
+  "snapshot_count": 608,
+  "validator": "independent_r27_raw_db_model_validator",
+  "violations": []
+}

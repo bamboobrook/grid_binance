@@ -1,0 +1,76 @@
+{
+  "g0_real_order_canaries": 8,
+  "passed": true,
+  "policies": [
+    {
+      "annualized_return_pct": -0.7524667402731389,
+      "logical_risk_rows": 1531680,
+      "max_drawdown_recomputed_pct": 2.5470503452731705,
+      "p_a": true,
+      "p_b": false,
+      "policy_id": "C0-5m-21d-RAW-A0.10-SO0.50"
+    },
+    {
+      "annualized_return_pct": -0.6356832075308572,
+      "logical_risk_rows": 1531680,
+      "max_drawdown_recomputed_pct": 2.212354338613204,
+      "p_a": true,
+      "p_b": false,
+      "policy_id": "C0-5m-21d-RAW-A0.10-SO0.75"
+    },
+    {
+      "annualized_return_pct": -0.9048210229525067,
+      "logical_risk_rows": 1531680,
+      "max_drawdown_recomputed_pct": 2.7469518484952595,
+      "p_a": true,
+      "p_b": false,
+      "policy_id": "C0-5m-21d-RAW-A0.20-SO0.50"
+    },
+    {
+      "annualized_return_pct": -0.8733463239296135,
+      "logical_risk_rows": 1531680,
+      "max_drawdown_recomputed_pct": 2.656937413759022,
+      "p_a": true,
+      "p_b": false,
+      "policy_id": "C0-5m-21d-RAW-A0.20-SO0.75"
+    },
+    {
+      "annualized_return_pct": -0.47677681230817726,
+      "logical_risk_rows": 1531680,
+      "max_drawdown_recomputed_pct": 1.844373594322176,
+      "p_a": true,
+      "p_b": false,
+      "policy_id": "C0-1h-21d-RAW-A0.10-SO0.50"
+    },
+    {
+      "annualized_return_pct": -0.47677681230817726,
+      "logical_risk_rows": 1531680,
+      "max_drawdown_recomputed_pct": 1.844373594322176,
+      "p_a": true,
+      "p_b": false,
+      "policy_id": "C0-1h-21d-RAW-A0.10-SO0.75"
+    },
+    {
+      "annualized_return_pct": -0.8418833721514085,
+      "logical_risk_rows": 1531680,
+      "max_drawdown_recomputed_pct": 2.937540025002901,
+      "p_a": true,
+      "p_b": false,
+      "policy_id": "C0-1h-21d-RAW-A0.20-SO0.50"
+    },
+    {
+      "annualized_return_pct": -0.7433573876970856,
+      "logical_risk_rows": 1531680,
+      "max_drawdown_recomputed_pct": 2.65512804357202,
+      "p_a": true,
+      "p_b": false,
+      "policy_id": "C0-1h-21d-RAW-A0.20-SO0.75"
+    }
+  ],
+  "policy_count": 8,
+  "production_metric_function_called": false,
+  "raw_trace_read": true,
+  "schema_version": 1,
+  "validator": "independent_r27_trace_account_validator",
+  "violations": []
+}

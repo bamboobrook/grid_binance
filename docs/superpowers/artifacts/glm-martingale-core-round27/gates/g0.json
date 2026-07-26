@@ -1,0 +1,198 @@
+{
+  "btc_reference_only": true,
+  "phase": "g0",
+  "real_canaries": [
+    {
+      "anchor": 1688169600000,
+      "btc_orders": 0,
+      "config_id": "C0-1h-21d-FDR",
+      "first_signal": {
+        "direction": -1,
+        "neutral": false,
+        "timestamp": 1688176799999,
+        "value": 1.558437757871302
+      },
+      "model_hash": "87132f4f6cb5027f9c78f087a231d479de0b09ea179fd2bdc13e735933ee19af",
+      "order_hash_changed": true,
+      "pair_id": "AVAXUSDT__DOGEUSDT",
+      "selection": "first anchor then pair_id; return blind",
+      "trace_manifest": {
+        "path": "artifacts-local/round27/aaa02fda4e588ced0359318465ee682c677ae00c/traces/g0-C0-1h-21d-FDR.jsonl",
+        "rows": 12,
+        "sha256": "4f561068f91f98360bf9162455af7646aa45c933dd2400dfa1c4b6b8628d886b"
+      }
+    },
+    {
+      "anchor": 1688169600000,
+      "btc_orders": 0,
+      "config_id": "C0-1h-21d-RAW",
+      "first_signal": {
+        "direction": -1,
+        "neutral": false,
+        "timestamp": 1688176799999,
+        "value": 1.558437757871302
+      },
+      "model_hash": "87132f4f6cb5027f9c78f087a231d479de0b09ea179fd2bdc13e735933ee19af",
+      "order_hash_changed": true,
+      "pair_id": "AVAXUSDT__DOGEUSDT",
+      "selection": "first anchor then pair_id; return blind",
+      "trace_manifest": {
+        "path": "artifacts-local/round27/aaa02fda4e588ced0359318465ee682c677ae00c/traces/g0-C0-1h-21d-RAW.jsonl",
+        "rows": 12,
+        "sha256": "4f561068f91f98360bf9162455af7646aa45c933dd2400dfa1c4b6b8628d886b"
+      }
+    },
+    {
+      "anchor": 1688169600000,
+      "btc_orders": 0,
+      "config_id": "C0-5m-21d-FDR",
+      "first_signal": {
+        "direction": -1,
+        "neutral": false,
+        "timestamp": 1688173799999,
+        "value": 1.198611303084197
+      },
+      "model_hash": "008c1a08ed65f4d87ce83930a9a7d1a5e338a82b965921eb5760932c08013f1d",
+      "order_hash_changed": true,
+      "pair_id": "AVAXUSDT__DOGEUSDT",
+      "selection": "first anchor then pair_id; return blind",
+      "trace_manifest": {
+        "path": "artifacts-local/round27/aaa02fda4e588ced0359318465ee682c677ae00c/traces/g0-C0-5m-21d-FDR.jsonl",
+        "rows": 12,
+        "sha256": "506819cb6915a63bea6a34657219052e688a2f8e129476b75d2ea2edc125fa14"
+      }
+    },
+    {
+      "anchor": 1688169600000,
+      "btc_orders": 0,
+      "config_id": "C0-5m-21d-RAW",
+      "first_signal": {
+        "direction": -1,
+        "neutral": false,
+        "timestamp": 1688173799999,
+        "value": 1.198611303084197
+      },
+      "model_hash": "008c1a08ed65f4d87ce83930a9a7d1a5e338a82b965921eb5760932c08013f1d",
+      "order_hash_changed": true,
+      "pair_id": "AVAXUSDT__DOGEUSDT",
+      "selection": "first anchor then pair_id; return blind",
+      "trace_manifest": {
+        "path": "artifacts-local/round27/aaa02fda4e588ced0359318465ee682c677ae00c/traces/g0-C0-5m-21d-RAW.jsonl",
+        "rows": 12,
+        "sha256": "506819cb6915a63bea6a34657219052e688a2f8e129476b75d2ea2edc125fa14"
+      }
+    },
+    {
+      "anchor": 1688774400000,
+      "btc_orders": 0,
+      "config_id": "C1-1h-14d-E0",
+      "first_signal": {
+        "direction": 1,
+        "neutral": false,
+        "timestamp": 1688777999999,
+        "value": -0.7907218506847119
+      },
+      "model_hash": "ff2d40476f2b43687925fcc007c9feb30638781ca35bd0db4789f671996ef89d",
+      "order_hash_changed": true,
+      "pair_id": "APTUSDT__ATOMUSDT",
+      "selection": "first anchor then pair_id; return blind",
+      "trace_manifest": {
+        "path": "artifacts-local/round27/aaa02fda4e588ced0359318465ee682c677ae00c/traces/g0-C1-1h-14d-E0.jsonl",
+        "rows": 12,
+        "sha256": "cb483a904e0c21ad59bbfb65d30ddcdfb0ce8207a851e09478d1401055f7980a"
+      }
+    },
+    {
+      "anchor": 1688774400000,
+      "btc_orders": 0,
+      "config_id": "C1-1h-14d-E1",
+      "first_signal": {
+        "direction": 1,
+        "neutral": false,
+        "timestamp": 1688777999999,
+        "value": -0.7907218506847119
+      },
+      "model_hash": "ff2d40476f2b43687925fcc007c9feb30638781ca35bd0db4789f671996ef89d",
+      "order_hash_changed": true,
+      "pair_id": "APTUSDT__ATOMUSDT",
+      "selection": "first anchor then pair_id; return blind",
+      "trace_manifest": {
+        "path": "artifacts-local/round27/aaa02fda4e588ced0359318465ee682c677ae00c/traces/g0-C1-1h-14d-E1.jsonl",
+        "rows": 12,
+        "sha256": "cb483a904e0c21ad59bbfb65d30ddcdfb0ce8207a851e09478d1401055f7980a"
+      }
+    },
+    {
+      "anchor": 1689379200000,
+      "btc_orders": 0,
+      "config_id": "C1-1h-21d-E0",
+      "first_signal": null,
+      "model_hash": "50ced5cbcfb908e31b8e8282f4f3318baced3f81d9d0aca3b15c6db300550173",
+      "order_hash_changed": false,
+      "pair_id": "ATOMUSDT__SOLUSDT",
+      "selection": "first anchor then pair_id; return blind",
+      "trace_manifest": {
+        "explicit_no_signal": true,
+        "rows": 0
+      }
+    },
+    {
+      "anchor": 1689379200000,
+      "btc_orders": 0,
+      "config_id": "C1-1h-21d-E1",
+      "first_signal": {
+        "direction": -1,
+        "neutral": false,
+        "timestamp": 1689548399999,
+        "value": 1.3905259762611564
+      },
+      "model_hash": "af4dda87b3bdacdeaa050c64ed56b8e144aeca0e4db3dff4a916f84a9920a416",
+      "order_hash_changed": true,
+      "pair_id": "ATOMUSDT__ETHUSDT",
+      "selection": "first anchor then pair_id; return blind",
+      "trace_manifest": {
+        "path": "artifacts-local/round27/aaa02fda4e588ced0359318465ee682c677ae00c/traces/g0-C1-1h-21d-E1.jsonl",
+        "rows": 12,
+        "sha256": "b40b5602cb49f7bc7345c3e904ebe23cd6818ec892ebcdf309d52caf4f388abb"
+      }
+    },
+    {
+      "anchor": 1703289600000,
+      "btc_orders": 0,
+      "config_id": "P1-5m-7d",
+      "first_signal": {
+        "direction": 1,
+        "neutral": false,
+        "timestamp": 1703289899999,
+        "value": -2.302716563758764
+      },
+      "model_hash": "d02fc7de7bdd28415c93ec83191c29b987df891d99f88c1ec3e54bd1679485df",
+      "order_hash_changed": true,
+      "pair_id": "ETHUSDT__ETCUSDT",
+      "selection": "first anchor then pair_id; return blind",
+      "trace_manifest": {
+        "path": "artifacts-local/round27/aaa02fda4e588ced0359318465ee682c677ae00c/traces/g0-P1-5m-7d.jsonl",
+        "rows": 12,
+        "sha256": "08cd94d24d5ecbb5cc1a93ca79f9261f7d39487193209c45477f7ebea7ac85e1"
+      }
+    }
+  ],
+  "schema_version": 1,
+  "source_commit": "aaa02fda4e588ced0359318465ee682c677ae00c",
+  "status": "PASS",
+  "synthetic": {
+    "equity": 2000.8800175879999,
+    "fo": 1,
+    "groups": 0,
+    "positions": 0,
+    "reserve": -0.0,
+    "so": 1,
+    "tp": 1,
+    "trace_manifest": {
+      "path": "artifacts-local/round27/aaa02fda4e588ced0359318465ee682c677ae00c/traces/g0-synthetic.jsonl",
+      "rows": 16,
+      "sha256": "64e7a5b9ca01caaf4594d5c381e37aabd972765e501668970387e80e84d9f32d"
+    },
+    "wallet": 2000.8800175879999
+  }
+}
