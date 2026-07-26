@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "status": "superseded_implementation",
+  "source_commit": "88e3f3c2fe0a46faa4fc501a8fedeaf698a24a94",
+  "failed_stage": "account_validator",
+  "model_validator": "PASS_7166_LEGS_243_COPULA_PAIRS_16_PBD_PAIRS",
+  "account_validator": {
+    "policy_count": 8,
+    "violation_count": 384,
+    "unique_violations": [
+      "risk_idle_contract"
+    ]
+  },
+  "root_cause": "replay advanced last_processed from the excursion signal exit instead of the final active 1m risk row, so cycles that consumed the extra abort bar overlapped the following idle span",
+  "action": "track the final written active-risk timestamp, create a new immutable source commit, retain this raw root, and rerun from R0"
+}

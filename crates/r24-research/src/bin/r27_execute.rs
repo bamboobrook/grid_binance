@@ -760,6 +760,7 @@ fn replay_policy(
         }
         let entry_open_ms = excursion.entry_ms + 1;
         write_idle_span(&mut writer, last_processed, entry_open_ms, &account)?;
+        let mut last_risk_timestamp = entry_open_ms - MINUTE_MS;
         let symbols = excursion.pair.symbols();
         let (left, right) = next_bars(
             connection,
@@ -824,6 +825,7 @@ fn replay_policy(
                 }
             }
             write_risk_minute(&mut writer, left[index].timestamp, &account)?;
+            last_risk_timestamp = left[index].timestamp;
             if account.terminated {
                 break;
             }
@@ -879,7 +881,7 @@ fn replay_policy(
         let cycle_pnl = account.wallet_balance - cycle_start_wallet;
         *pair_pnl.entry(excursion.pair.id().to_string()).or_default() += cycle_pnl;
         block_pnl[excursion.block] += cycle_pnl;
-        last_processed = excursion.exit_ms + 1 + MINUTE_MS;
+        last_processed = last_risk_timestamp + MINUTE_MS;
     }
     write_idle_span(&mut writer, last_processed, END_MS, &account)?;
     writer.flush()?;
