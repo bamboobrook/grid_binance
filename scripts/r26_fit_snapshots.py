@@ -75,6 +75,7 @@ FUNDING: dict[str, tuple[np.ndarray, np.ndarray]] = {}
 FILTERS: dict[str, Filter] = {}
 OUTPUT_ROOT = Path(".")
 RESUME = False
+VALIDATOR_CACHE_ALGORITHM = "r26-independent-statsmodels-leg-v1"
 
 
 def parse_args() -> argparse.Namespace:
@@ -828,6 +829,41 @@ def validator_leg_task(task: tuple[str, str, int, int]) -> tuple[tuple[str, str,
     return task, validator_diagnostics(frequency, symbol, anchor, formation)
 
 
+def validator_leg_cache_path(root: Path, task: tuple[str, str, int, int]) -> Path:
+    frequency, symbol, anchor, formation = task
+    return root / f"{frequency}-{formation}d-{anchor}-{symbol}.json"
+
+
+def validator_leg_cache_payload(task: tuple[str, str, int, int], result: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "algorithm": VALIDATOR_CACHE_ALGORITHM,
+        "market_data_sha256": MARKET_DB_SHA256,
+        "statsmodels": statsmodels.__version__,
+        "task": list(task),
+        "result": result,
+    }
+
+
+def load_validator_leg_cache(path: Path, task: tuple[str, str, int, int]) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+    if (
+        payload.get("schema_version") != 1
+        or payload.get("algorithm") != VALIDATOR_CACHE_ALGORITHM
+        or payload.get("market_data_sha256") != MARKET_DB_SHA256
+        or payload.get("statsmodels") != statsmodels.__version__
+        or payload.get("task") != list(task)
+        or not isinstance(payload.get("result"), dict)
+    ):
+        return None
+    return payload["result"]
+
+
 def run_validation(args: argparse.Namespace) -> None:
     global SIGNALS, LIQUIDITY, FUNDING, FILTERS, OUTPUT_ROOT
     OUTPUT_ROOT = Path(args.artifact_root)
@@ -853,11 +889,43 @@ def run_validation(args: argparse.Namespace) -> None:
         (snapshot["frequency"], leg["symbol"], int(snapshot["roll_anchor_ms"]), int(snapshot["formation_days"]))
         for _, snapshot in snapshots for leg in snapshot["legs"]
     })
-    if args.workers > 1:
+    cache_root = OUTPUT_ROOT / "validator-checkpoints" / "model-legs-v1"
+    cache_root.mkdir(parents=True, exist_ok=True)
+    independent_leg_results = {}
+    pending_leg_tasks = []
+    for task in leg_tasks:
+        cached = load_validator_leg_cache(validator_leg_cache_path(cache_root, task), task) if args.resume else None
+        if cached is None:
+            pending_leg_tasks.append(task)
+        else:
+            independent_leg_results[task] = cached
+    print(json.dumps({
+        "validator": "model", "stage": "legs", "total": len(leg_tasks),
+        "cached": len(independent_leg_results), "pending": len(pending_leg_tasks),
+        "workers": args.workers,
+    }), flush=True)
+
+    def record_leg(result: tuple[tuple[str, str, int, int], dict[str, Any]]) -> None:
+        task, diagnostics = result
+        independent_leg_results[task] = diagnostics
+        atomic_json(
+            validator_leg_cache_path(cache_root, task),
+            validator_leg_cache_payload(task, diagnostics),
+        )
+        completed = len(independent_leg_results)
+        if completed == len(leg_tasks) or completed % 100 == 0:
+            print(json.dumps({
+                "validator": "model", "stage": "legs", "completed": completed,
+                "total": len(leg_tasks),
+            }), flush=True)
+
+    if args.workers > 1 and pending_leg_tasks:
         with get_context("fork").Pool(args.workers) as pool:
-            independent_leg_results = dict(pool.imap_unordered(validator_leg_task, leg_tasks, chunksize=1))
+            for result in pool.imap_unordered(validator_leg_task, pending_leg_tasks, chunksize=1):
+                record_leg(result)
     else:
-        independent_leg_results = dict(validator_leg_task(task) for task in leg_tasks)
+        for task in pending_leg_tasks:
+            record_leg(validator_leg_task(task))
     fields = [
         "sample_count", "sample_coverage", "intercept", "beta", "residual_sigma",
         "eg_coint_statistic", "eg_coint_p_value", "residual_adf_statistic",

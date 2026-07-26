@@ -11,6 +11,7 @@ const REPO_ARTIFACT: &str = "docs/superpowers/artifacts/glm-martingale-core-roun
 struct Args {
     phase: String,
     artifact_root: PathBuf,
+    resume: bool,
 }
 
 fn main() -> Result<()> {
@@ -19,7 +20,7 @@ fn main() -> Result<()> {
     let raw = absolute(&repo, &args.artifact_root);
     let artifact = repo.join(REPO_ARTIFACT);
     fs::create_dir_all(&artifact)?;
-    run_model_validator(&repo, &args.artifact_root)?;
+    run_model_validator(&repo, &args.artifact_root, args.resume)?;
     let account = validate_accounts(&repo, &raw)?;
     write_json(raw.join("account-independent-validator.json"), &account)?;
     write_json(
@@ -44,8 +45,9 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn run_model_validator(repo: &Path, artifact_root: &Path) -> Result<()> {
-    let status = Command::new("python3")
+fn run_model_validator(repo: &Path, artifact_root: &Path, resume: bool) -> Result<()> {
+    let mut command = Command::new("python3");
+    command
         .args([
             "scripts/r26_fit_snapshots.py",
             "--phase",
@@ -53,8 +55,11 @@ fn run_model_validator(repo: &Path, artifact_root: &Path) -> Result<()> {
             "--artifact-root",
         ])
         .arg(artifact_root)
-        .current_dir(repo)
-        .status()?;
+        .current_dir(repo);
+    if resume {
+        command.arg("--resume");
+    }
+    let status = command.status()?;
     if !status.success() {
         bail!("independent model validator failed with {status}")
     }
@@ -376,6 +381,7 @@ fn parse_args() -> Result<Args> {
     let values = std::env::args().skip(1).collect::<Vec<_>>();
     let mut phase = None;
     let mut artifact_root = None;
+    let mut resume = false;
     let mut index = 0;
     while index < values.len() {
         match values[index].as_str() {
@@ -387,6 +393,7 @@ fn parse_args() -> Result<Args> {
                 index += 1;
                 artifact_root = values.get(index).map(PathBuf::from);
             }
+            "--resume" => resume = true,
             other => bail!("unknown argument {other}"),
         }
         index += 1;
@@ -394,6 +401,7 @@ fn parse_args() -> Result<Args> {
     Ok(Args {
         phase: phase.context("--phase required")?,
         artifact_root: artifact_root.context("--artifact-root required")?,
+        resume,
     })
 }
 
