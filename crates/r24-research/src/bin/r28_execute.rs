@@ -310,19 +310,22 @@ fn run_d0(repo: &Path, raw: &Path, artifact: &Path, resume: bool) -> Result<()> 
     {
         let id = symbol["symbol"].as_str().context("symbol missing")?;
         let (count, distinct_count, first, last, close_errors): (i64, i64, i64, i64, i64) = connection.query_row(
-            "SELECT COUNT(*),COUNT(DISTINCT open_time),MIN(open_time),MAX(open_time),SUM(CASE WHEN close_time-open_time!=59999 THEN 1 ELSE 0 END) FROM klines INDEXED BY idx_klines_symbol_time WHERE symbol=?1 AND market_type='futures_usdt_perp' AND timeframe='1m'",
-            [id],
+            "SELECT COUNT(*),COUNT(DISTINCT open_time),MIN(open_time),MAX(open_time),SUM(CASE WHEN close_time-open_time!=59999 THEN 1 ELSE 0 END) FROM klines INDEXED BY idx_klines_symbol_time WHERE symbol=?1 AND market_type='futures_usdt_perp' AND timeframe='1m' AND open_time>=?2 AND open_time<?3",
+            (id,START_MS,END_MS),
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?,row.get(4)?)),
         )?;
-        let expected = (last - first) / MINUTE_MS + 1;
+        let expected = LOGICAL_MINUTES;
         let duplicates = count - distinct_count;
         symbols.push(serde_json::json!({
-            "symbol":id,"first_ms":first,"last_ms":last,"row_count":count,
+            "symbol":id,"scope":"frozen_outer_interval","first_ms":first,"last_ms":last,"row_count":count,
             "expected_contiguous_count":expected,"missing_minutes":expected-distinct_count,
             "duplicate_minutes":duplicates,"duplicate_evidence":"COUNT(*)-COUNT(DISTINCT open_time) from raw DB",
-            "close_time_contract_errors":close_errors,"complete":distinct_count==expected && duplicates==0 && close_errors==0
+            "close_time_contract_errors":close_errors,"complete":first==START_MS&&last==END_MS-MINUTE_MS&&distinct_count==expected && duplicates==0 && close_errors==0
         }));
     }
+    let funding_expected:i64=funding_connection.query_row(
+        "SELECT COUNT(DISTINCT funding_time) FROM funding_rates WHERE symbol='BTCUSDT' AND funding_time>=?1 AND funding_time<?2",
+        (START_MS,END_MS),|row|row.get(0))?;
     let mut funding_symbols = Vec::new();
     for inherited in round27["funding"]["symbols"]
         .as_array()
@@ -332,15 +335,15 @@ fn run_d0(repo: &Path, raw: &Path, artifact: &Path, resume: bool) -> Result<()> 
             .as_str()
             .context("funding symbol missing")?;
         let(count,distinct_count,first,last):(i64,i64,i64,i64)=funding_connection.query_row(
-            "SELECT COUNT(*),COUNT(DISTINCT funding_time),MIN(funding_time),MAX(funding_time) FROM funding_rates WHERE symbol=?1",
-            [symbol],|row|Ok((row.get(0)?,row.get(1)?,row.get(2)?,row.get(3)?)))?;
-        let expected = inherited["expected"]
-            .as_i64()
-            .context("inherited funding expected missing")?;
+            "SELECT COUNT(*),COUNT(DISTINCT funding_time),MIN(funding_time),MAX(funding_time) FROM funding_rates WHERE symbol=?1 AND funding_time>=?2 AND funding_time<?3",
+            (symbol,START_MS,END_MS),|row|Ok((row.get(0)?,row.get(1)?,row.get(2)?,row.get(3)?)))?;
+        let timestamp_mismatch:i64=funding_connection.query_row(
+            "SELECT COUNT(*) FROM (SELECT funding_time FROM funding_rates WHERE symbol='BTCUSDT' AND funding_time>=?2 AND funding_time<?3 EXCEPT SELECT funding_time FROM funding_rates WHERE symbol=?1 AND funding_time>=?2 AND funding_time<?3)",
+            (symbol,START_MS,END_MS),|row|row.get(0))?;
         funding_symbols.push(
-            serde_json::json!({"symbol":symbol,"first_ms":first,"last_ms":last,"expected":expected,
-            "actual":count,"missing":expected-distinct_count,"duplicate":count-distinct_count,
-            "complete":count==expected&&distinct_count==expected}),
+            serde_json::json!({"symbol":symbol,"scope":"frozen_outer_interval","first_ms":first,"last_ms":last,"expected":funding_expected,
+            "actual":count,"missing":funding_expected-distinct_count,"duplicate":count-distinct_count,"reference_timestamp_mismatch":timestamp_mismatch,
+            "complete":count==funding_expected&&distinct_count==funding_expected&&timestamp_mismatch==0}),
         );
     }
     let exchange_path = absolute(
