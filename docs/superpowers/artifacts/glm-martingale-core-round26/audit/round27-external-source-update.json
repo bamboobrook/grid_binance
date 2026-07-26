@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "search_date": "2026-07-26",
+  "search_services": ["OpenAlex", "Crossref", "publisher full text", "statsmodels official API documentation"],
+  "sources": [
+    {
+      "doi": "10.1186/s40854-024-00702-7",
+      "title": "Copula-based trading of cointegrated cryptocurrency Pairs",
+      "decision": "adopt_as_source_faithful_control",
+      "use": "weekly reference-spread Copula selector with fixed train-only thresholds; no inherited return claim",
+      "boundary": "paper capital, sample, margin, funding and execution assumptions do not satisfy this repository's promotion contract"
+    },
+    {
+      "doi": "10.1108/CFRI-11-2024-0727",
+      "title": "Pair trading with high-frequency data in the cryptocurrency market",
+      "decision": "adopt_fixed_threshold_and_hybrid_ranker_only",
+      "use": "pre-register fixed thresholds and use distance only as a return-blind tie-break/ranker after statistical admission",
+      "boundary": "entry, exit and pair-count sensitivity results prohibit post-result threshold tuning"
+    },
+    {
+      "doi": "10.1007/s10614-023-10539-4",
+      "title": "Improving Cointegration-Based Pairs Trading Strategy with Asymptotic Analyses and Convergence Rate Filters",
+      "retrieved_html_sha256": "f7a778b62cedea7e6418aa5b05cd67d568508f4431f538fc5b5d21fedcaae880",
+      "decision": "adopt_convergence_rate_as_ranker_not_johansen_family",
+      "use": "rank or veto slow expected convergence; do not add another hard admission AND gate",
+      "boundary": "the paper's Johansen/VECM family and threshold chosen from its own experiment are not imported"
+    },
+    {
+      "doi": "10.7494/manage.2019.20.2.151",
+      "title": "Pairs trading with the persistence-based decomposition model",
+      "retrieved_pdf_sha256": "e7aeec1fb16ad24ebdb791f765ff57c103098c2c0911a1e32dc74825e868ef44",
+      "decision": "conditional_new_activation_arm",
+      "use": "decompose spread shocks into random-walk, finite AR(1), and noise components; only finite-persistence component may gate Martin FO/SO/TP",
+      "boundary": "paper's realistic restricted result is 9.16% annual return with 46.37% MDD; its 138.6% result removes execution constraints and is explicitly rejected as delay-zero bias"
+    },
+    {
+      "doi": "10.1002/fut.21927",
+      "title": "Pairs-trading and spread persistence in the European stock market",
+      "decision": "adopt_persistence_dependent_ranking_principle",
+      "use": "use persistence to rank fixed candidates, not to search outer returns"
+    },
+    {
+      "doi": "10.1007/s11227-021-04013-x",
+      "title": "Structural break-aware pairs trading strategy using deep reinforcement learning",
+      "retrieved_html_sha256": "2ac345983d5f4ae67876c371427df72240d235e59e0d86409c7eedc15bb06be4",
+      "decision": "reject_ml_and_rl_implementation",
+      "reason": "black-box break detector and reinforcement learner add a large overfit surface; only the break-risk motivation is retained"
+    },
+    {
+      "doi": "10.3389/fams.2026.1749337",
+      "title": "Deep learning-based pairs trading: real-time forecasting of co-integrated cryptocurrency pairs",
+      "retrieved_html_sha256": "2115248981c90d8a1138931b5f16f7fdc4d00df7f7f300680d95927857e6cdbc",
+      "decision": "reject_for_round27",
+      "reason": "transaction costs are not explicitly modeled, reported MDD is 28.75%, and DNN/LSTM dynamic weighting materially increases overfit and execution risk"
+    },
+    {
+      "url": "https://www.statsmodels.org/stable/generated/statsmodels.stats.diagnostic.breaks_cusumolsresid.html",
+      "title": "statsmodels.stats.diagnostic.breaks_cusumolsresid",
+      "decision": "use_to_bound_round26_claim",
+      "use": "documents that the test is based on scaled cumulative OLS residuals and a Brownian-Bridge asymptotic distribution; it does not establish a HAC-adjusted crypto residual admission gate"
+    }
+  ],
+  "search_conclusion": "No public source found that simultaneously demonstrates Martin-only PnL, principal below 5000U, multi-coin shared-account execution, 50/90/100 percent annual targets, 10/20/30 percent equity drawdown, and reproducible realistic fills. Round 27 therefore tests mechanisms rather than inheriting headline returns."
+}

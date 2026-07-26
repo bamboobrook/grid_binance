@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "audit_date": "2026-07-26",
+  "source_commit": "7a8e792696d955556a2725daf3d099c041c6397c",
+  "audited_head": "f28967879b41999077fc41186a72597f7f8b2455",
+  "snapshot_manifest_sha256": "2148b366f2b08fbd7c621f83a562b83b22ff31784c59d33858a398b4a4fd0d6d",
+  "snapshot_count": 608,
+  "leg_count": 9570,
+  "strict_common_gate_pass_count": 0,
+  "cusum_p_ge_0p05_count": 0,
+  "cusum_p_max": 0.012006575985620636,
+  "groups": {
+    "1h-14d": {
+      "legs": 2404,
+      "individual_pass": {
+        "coverage_100pct": 2404,
+        "half_life_2_to_168": 2295,
+        "kpss_p_ge_0p05": 691,
+        "cusum_p_ge_0p05": 0,
+        "beta_drift_le_0p25": 519,
+        "tail_crossings_ge_20": 32,
+        "eg_p_le_0p05": 172
+      },
+      "raw_intersections": {
+        "eg_half_life_kpss": 123,
+        "plus_cusum": 0,
+        "plus_beta_drift": 44,
+        "plus_tail_crossings": 14,
+        "plus_beta_drift_and_tail_crossings": 6,
+        "all_round26_hard_gates": 0
+      },
+      "raw_base_activity": {
+        "distinct_alts": 24,
+        "rolls_ge_2": 23,
+        "rolls_ge_4": 8,
+        "max_alts_in_roll": 16
+      },
+      "fdr_base_activity": {
+        "accepted_legs": 43,
+        "distinct_alts": 20,
+        "rolls_ge_2": 4,
+        "rolls_ge_4": 2,
+        "max_alts_in_roll": 16
+      }
+    },
+    "1h-21d": {
+      "legs": 2381,
+      "individual_pass": {
+        "coverage_100pct": 2381,
+        "half_life_2_to_168": 2208,
+        "kpss_p_ge_0p05": 421,
+        "cusum_p_ge_0p05": 0,
+        "beta_drift_le_0p25": 584,
+        "tail_crossings_ge_20": 80,
+        "eg_p_le_0p05": 196
+      },
+      "raw_intersections": {
+        "eg_half_life_kpss": 116,
+        "plus_cusum": 0,
+        "plus_beta_drift": 66,
+        "plus_tail_crossings": 29,
+        "plus_beta_drift_and_tail_crossings": 20,
+        "all_round26_hard_gates": 0
+      },
+      "raw_base_activity": {
+        "distinct_alts": 24,
+        "rolls_ge_2": 22,
+        "rolls_ge_4": 8,
+        "max_alts_in_roll": 18
+      },
+      "fdr_base_activity": {
+        "accepted_legs": 51,
+        "distinct_alts": 23,
+        "rolls_ge_2": 7,
+        "rolls_ge_4": 3,
+        "max_alts_in_roll": 18
+      }
+    },
+    "5m-14d": {
+      "legs": 2404,
+      "individual_pass": {
+        "coverage_100pct": 2404,
+        "half_life_2_to_2016": 2318,
+        "kpss_p_ge_0p05": 57,
+        "cusum_p_ge_0p05": 0,
+        "beta_drift_le_0p25": 508,
+        "tail_crossings_ge_20": 483,
+        "eg_p_le_0p05": 189
+      },
+      "raw_intersections": {
+        "eg_half_life_kpss": 24,
+        "plus_cusum": 0,
+        "plus_beta_drift": 12,
+        "plus_tail_crossings": 22,
+        "plus_beta_drift_and_tail_crossings": 12,
+        "all_round26_hard_gates": 0
+      },
+      "raw_base_activity": {
+        "distinct_alts": 15,
+        "rolls_ge_2": 5,
+        "rolls_ge_4": 0,
+        "max_alts_in_roll": 2
+      },
+      "fdr_base_activity": {
+        "accepted_legs": 10,
+        "distinct_alts": 10,
+        "rolls_ge_2": 2,
+        "rolls_ge_4": 0,
+        "max_alts_in_roll": 2
+      }
+    },
+    "5m-21d": {
+      "legs": 2381,
+      "individual_pass": {
+        "coverage_100pct": 2381,
+        "half_life_2_to_2016": 2244,
+        "kpss_p_ge_0p05": 29,
+        "cusum_p_ge_0p05": 0,
+        "beta_drift_le_0p25": 576,
+        "tail_crossings_ge_20": 517,
+        "eg_p_le_0p05": 200
+      },
+      "raw_intersections": {
+        "eg_half_life_kpss": 21,
+        "plus_cusum": 0,
+        "plus_beta_drift": 13,
+        "plus_tail_crossings": 19,
+        "plus_beta_drift_and_tail_crossings": 11,
+        "all_round26_hard_gates": 0
+      },
+      "raw_base_activity": {
+        "distinct_alts": 11,
+        "rolls_ge_2": 4,
+        "rolls_ge_4": 1,
+        "max_alts_in_roll": 7
+      },
+      "fdr_base_activity": {
+        "accepted_legs": 11,
+        "distinct_alts": 10,
+        "rolls_ge_2": 1,
+        "rolls_ge_4": 1,
+        "max_alts_in_roll": 7
+      }
+    }
+  },
+  "causal_persistence_diagnostic": {
+    "definition": "current raw EG+KPSS+half-life leg also passed the immediately preceding weekly roll",
+    "1h-14d": {"legs": 11, "rolls_ge_2": 2, "max_alts_in_roll": 2},
+    "1h-21d": {"legs": 22, "rolls_ge_2": 4, "max_alts_in_roll": 8},
+    "5m-14d": {"legs": 0, "rolls_ge_2": 0, "max_alts_in_roll": 0},
+    "5m-21d": {"legs": 1, "rolls_ge_2": 0, "max_alts_in_roll": 1},
+    "decision": "ranking_or_runtime_veto_only_not_a_new_hard_admission_gate"
+  },
+  "conclusion": {
+    "exact_six_way_conjunctive_gate": "valid_zero_activation_observation",
+    "round26_family_closure": "overbroad_invalid",
+    "reason": "CUSUM alone rejects 9570/9570 legs; the validator checked zero pair models, and no Martin return replay was reached"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "audit_date": "2026-07-26",
+  "supersedes_for_decision_making": "docs/superpowers/artifacts/glm-martingale-core-round26/round26-authority.json",
+  "source_commit": "7a8e792696d955556a2725daf3d099c041c6397c",
+  "audited_head": "f28967879b41999077fc41186a72597f7f8b2455",
+  "status": "MATERIALLY_INCOMPLETE_INVALID_FAMILY_CLOSURE",
+  "execution_complete_under_literal_round26_stop_rule": true,
+  "data_gate": "PASS_29_ALTS",
+  "model_snapshots": "COMPLETE_608",
+  "model_legs": "COMPLETE_9570_NUMERICALLY_REPRODUCED",
+  "activation_configs": "COMPLETE_8_X_152_ZERO_UNDER_EXACT_CONJUNCTIVE_GATE",
+  "checked_pair_models": 0,
+  "g2_martin_replay": "NOT_EXECUTED",
+  "g3_tiers_budgets_cold_starts_stress": "NOT_EXECUTED",
+  "strict_valid_candidates": 0,
+  "strict_valid_5_of_5_candidates": 0,
+  "target_hit": false,
+  "valid_closure_scope": [
+    "R26_EXACT_EG_KPSS_HALF_LIFE_RAW_CUSUM_BETA_DRIFT_TAIL20_CONJUNCTIVE_ADMISSION"
+  ],
+  "invalid_closure_scope": [
+    "R26_WEEKLY_TOP20_REFERENCE_SPREAD_COPULA_MARTIN",
+    "weekly_reference_copula_martin_family",
+    "PBD_persistence_decomposition_martin"
+  ],
+  "next_authority": "docs/superpowers/plans/2026-07-26-glm-martingale-core-round27-staged-admission-persistence-recovery-plan.md"
+}
