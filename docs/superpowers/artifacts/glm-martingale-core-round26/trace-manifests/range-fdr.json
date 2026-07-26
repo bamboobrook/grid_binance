@@ -1,0 +1,29 @@
+{
+  "first_row": {
+    "equity": 2000.0,
+    "event": "one_minute_risk_path",
+    "groups": 0,
+    "maintenance": 0.0,
+    "margin": 0.0,
+    "pending": 0,
+    "positions": 0,
+    "reserved_quote": 0.0,
+    "timestamp": 1690848000000,
+    "wallet": 2000.0
+  },
+  "last_row": {
+    "equity": 2000.0,
+    "event": "one_minute_risk_path",
+    "groups": 0,
+    "maintenance": 0.0,
+    "margin": 0.0,
+    "pending": 0,
+    "positions": 0,
+    "reserved_quote": 0.0,
+    "timestamp": 1691971140000,
+    "wallet": 2000.0
+  },
+  "raw_path": "artifacts-local/round26/7a8e792696d955556a2725daf3d099c041c6397c/g0/traces/range-fdr-account.jsonl",
+  "rows": 18720,
+  "sha256": "15a0c6453a92ebbc79646821b4aec5a88795005584377ff9b4c6ee87280df908"
+}

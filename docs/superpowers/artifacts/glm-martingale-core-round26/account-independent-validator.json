@@ -1,0 +1,105 @@
+{
+  "passed": true,
+  "schema_version": 1,
+  "terminal_count": 8,
+  "terminals": [
+    {
+      "btc_orders": 0,
+      "btc_trades": 0,
+      "equity": 2000.0,
+      "final_state_zero": true,
+      "first_ms": 1690848000000,
+      "last_ms": 1691971140000,
+      "max_drawdown_pct": 0.0,
+      "rows": 18720,
+      "terminal": "range-raw",
+      "wallet": 2000.0
+    },
+    {
+      "btc_orders": 0,
+      "btc_trades": 0,
+      "equity": 2000.0,
+      "final_state_zero": true,
+      "first_ms": 1690848000000,
+      "last_ms": 1691971140000,
+      "max_drawdown_pct": 0.0,
+      "rows": 18720,
+      "terminal": "range-fdr",
+      "wallet": 2000.0
+    },
+    {
+      "btc_orders": 0,
+      "btc_trades": 0,
+      "equity": 2000.0,
+      "final_state_zero": true,
+      "first_ms": 1707955200000,
+      "last_ms": 1709164740000,
+      "max_drawdown_pct": 0.0,
+      "rows": 20160,
+      "terminal": "bull-raw",
+      "wallet": 2000.0
+    },
+    {
+      "btc_orders": 0,
+      "btc_trades": 0,
+      "equity": 2000.0,
+      "final_state_zero": true,
+      "first_ms": 1707955200000,
+      "last_ms": 1709164740000,
+      "max_drawdown_pct": 0.0,
+      "rows": 20160,
+      "terminal": "bull-fdr",
+      "wallet": 2000.0
+    },
+    {
+      "btc_orders": 0,
+      "btc_trades": 0,
+      "equity": 2000.0,
+      "final_state_zero": true,
+      "first_ms": 1722470400000,
+      "last_ms": 1723679940000,
+      "max_drawdown_pct": 0.0,
+      "rows": 20160,
+      "terminal": "shock-raw",
+      "wallet": 2000.0
+    },
+    {
+      "btc_orders": 0,
+      "btc_trades": 0,
+      "equity": 2000.0,
+      "final_state_zero": true,
+      "first_ms": 1722470400000,
+      "last_ms": 1723679940000,
+      "max_drawdown_pct": 0.0,
+      "rows": 20160,
+      "terminal": "shock-fdr",
+      "wallet": 2000.0
+    },
+    {
+      "btc_orders": 0,
+      "btc_trades": 0,
+      "equity": 2000.0,
+      "final_state_zero": true,
+      "first_ms": 1738368000000,
+      "last_ms": 1739577540000,
+      "max_drawdown_pct": 0.0,
+      "rows": 20160,
+      "terminal": "bear-raw",
+      "wallet": 2000.0
+    },
+    {
+      "btc_orders": 0,
+      "btc_trades": 0,
+      "equity": 2000.0,
+      "final_state_zero": true,
+      "first_ms": 1738368000000,
+      "last_ms": 1739577540000,
+      "max_drawdown_pct": 0.0,
+      "rows": 20160,
+      "terminal": "bear-fdr",
+      "wallet": 2000.0
+    }
+  ],
+  "validator": "independent_rust_raw_account_trace",
+  "violations": []
+}

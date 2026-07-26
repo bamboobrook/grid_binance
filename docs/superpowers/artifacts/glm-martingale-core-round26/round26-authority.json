@@ -1,0 +1,16 @@
+{
+  "account_validator_passed": true,
+  "btc_reference_only": true,
+  "c2": "not_applicable",
+  "fingerprint": "R26_WEEKLY_TOP20_REFERENCE_SPREAD_COPULA_MARTIN",
+  "model_validator_passed": true,
+  "outer_return_used_for_selection": false,
+  "p_b_survivors": [],
+  "phase": "g0-g2",
+  "round25r_authority": "MATERIALLY_INCOMPLETE_INVALID_RESULTS",
+  "schema_version": 1,
+  "source_commit": "7a8e792696d955556a2725daf3d099c041c6397c",
+  "source_tree": "a1555c486024b6663f1cf5aaa30ca6f718109947",
+  "status": "VALID_ACTIVATION_NO_REPLAY_CANDIDATE",
+  "validator_commit": "245da438e138fa22c911b9c0b5fa1d5ed624cca8"
+}

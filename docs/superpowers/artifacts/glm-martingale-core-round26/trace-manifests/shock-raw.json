@@ -1,0 +1,29 @@
+{
+  "first_row": {
+    "equity": 2000.0,
+    "event": "one_minute_risk_path",
+    "groups": 0,
+    "maintenance": 0.0,
+    "margin": 0.0,
+    "pending": 0,
+    "positions": 0,
+    "reserved_quote": 0.0,
+    "timestamp": 1722470400000,
+    "wallet": 2000.0
+  },
+  "last_row": {
+    "equity": 2000.0,
+    "event": "one_minute_risk_path",
+    "groups": 0,
+    "maintenance": 0.0,
+    "margin": 0.0,
+    "pending": 0,
+    "positions": 0,
+    "reserved_quote": 0.0,
+    "timestamp": 1723679940000,
+    "wallet": 2000.0
+  },
+  "raw_path": "artifacts-local/round26/7a8e792696d955556a2725daf3d099c041c6397c/g0/traces/shock-raw-account.jsonl",
+  "rows": 20160,
+  "sha256": "6f55aed23dddca4d093f0e374a9467a5d58f921f521b34c38e0fa6aedded51d9"
+}

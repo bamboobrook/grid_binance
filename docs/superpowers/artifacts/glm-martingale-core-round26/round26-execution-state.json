@@ -1,0 +1,13 @@
+{
+  "account_validator": true,
+  "d0": "terminal",
+  "g0": "terminal",
+  "g1_activation": "terminal",
+  "g2_replay": "terminal",
+  "g3": "not_applicable",
+  "model_validator": true,
+  "r0": "terminal",
+  "raw_root": "artifacts-local/round26/7a8e792696d955556a2725daf3d099c041c6397c",
+  "source_commit": "7a8e792696d955556a2725daf3d099c041c6397c",
+  "status": "VALID_ACTIVATION_NO_REPLAY_CANDIDATE"
+}

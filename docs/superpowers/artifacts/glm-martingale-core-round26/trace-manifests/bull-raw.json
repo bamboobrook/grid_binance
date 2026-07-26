@@ -1,0 +1,29 @@
+{
+  "first_row": {
+    "equity": 2000.0,
+    "event": "one_minute_risk_path",
+    "groups": 0,
+    "maintenance": 0.0,
+    "margin": 0.0,
+    "pending": 0,
+    "positions": 0,
+    "reserved_quote": 0.0,
+    "timestamp": 1707955200000,
+    "wallet": 2000.0
+  },
+  "last_row": {
+    "equity": 2000.0,
+    "event": "one_minute_risk_path",
+    "groups": 0,
+    "maintenance": 0.0,
+    "margin": 0.0,
+    "pending": 0,
+    "positions": 0,
+    "reserved_quote": 0.0,
+    "timestamp": 1709164740000,
+    "wallet": 2000.0
+  },
+  "raw_path": "artifacts-local/round26/7a8e792696d955556a2725daf3d099c041c6397c/g0/traces/bull-raw-account.jsonl",
+  "rows": 20160,
+  "sha256": "c559d39ce502a67a981747a9f66a0fd5d282ad853d96c12c297f2abf33e05b1a"
+}

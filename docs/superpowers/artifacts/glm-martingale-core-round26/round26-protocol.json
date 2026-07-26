@@ -1,0 +1,23 @@
+{
+  "account": "single shared continuous",
+  "alt_pool_size": 29,
+  "fingerprint": "R26_WEEKLY_TOP20_REFERENCE_SPREAD_COPULA_MARTIN",
+  "formation_days": [
+    14,
+    21
+  ],
+  "frequencies": [
+    "1h",
+    "5m"
+  ],
+  "matching": "exact maximum-cardinality maximum-weight, max 3 pairs",
+  "model_authority": "statsmodels immutable snapshots",
+  "principal_rule": "strictly less than 5000U",
+  "reference": "BTCUSDT",
+  "schema_version": 1,
+  "selectors": [
+    "raw",
+    "fdr"
+  ],
+  "weekly_anchor_contract": "[2023-07-01T00:00:00Z,2026-05-30T00:00:00Z) every 7d = 152"
+}

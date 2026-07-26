@@ -1,0 +1,903 @@
+{
+  "eligible_alts": [
+    "AAVEUSDT",
+    "ADAUSDT",
+    "ALGOUSDT",
+    "APTUSDT",
+    "ATOMUSDT",
+    "AVAXUSDT",
+    "BCHUSDT",
+    "BNBUSDT",
+    "COMPUSDT",
+    "CRVUSDT",
+    "DASHUSDT",
+    "DOGEUSDT",
+    "DOTUSDT",
+    "DYDXUSDT",
+    "EGLDUSDT",
+    "ETCUSDT",
+    "ETHUSDT",
+    "FILUSDT",
+    "GALAUSDT",
+    "HBARUSDT",
+    "ICPUSDT",
+    "INJUSDT",
+    "LINKUSDT",
+    "NEARUSDT",
+    "SOLUSDT",
+    "TRXUSDT",
+    "UNIUSDT",
+    "XRPUSDT",
+    "ZECUSDT"
+  ],
+  "exchange_info": {
+    "exact_symbol_set": true,
+    "file_sha256": "aa6b21bbb04a421ffa72e8755312cdb20de684a9e016400c14fad7ee94f9be7b",
+    "filters": [
+      {
+        "min_notional": 5.0,
+        "min_qty": 0.1,
+        "step_size": 0.1,
+        "symbol": "AAVEUSDT",
+        "tick_size": 0.01
+      },
+      {
+        "min_notional": 5.0,
+        "min_qty": 1.0,
+        "step_size": 1.0,
+        "symbol": "ADAUSDT",
+        "tick_size": 0.0001
+      },
+      {
+        "min_notional": 5.0,
+        "min_qty": 0.1,
+        "step_size": 0.1,
+        "symbol": "ALGOUSDT",
+        "tick_size": 1e-05
+      },
+      {
+        "min_notional": 5.0,
+        "min_qty": 0.1,
+        "step_size": 0.1,
+        "symbol": "APTUSDT",
+        "tick_size": 0.0001
+      },
+      {
+        "min_notional": 5.0,
+        "min_qty": 0.01,
+        "step_size": 0.01,
+        "symbol": "ATOMUSDT",
+        "tick_size": 0.001
+      },
+      {
+        "min_notional": 5.0,
+        "min_qty": 1.0,
+        "step_size": 1.0,
+        "symbol": "AVAXUSDT",
+        "tick_size": 0.001
+      },
+      {
+        "min_notional": 20.0,
+        "min_qty": 0.001,
+        "step_size": 0.001,
+        "symbol": "BCHUSDT",
+        "tick_size": 0.01
+      },
+      {
+        "min_notional": 5.0,
+        "min_qty": 0.01,
+        "step_size": 0.01,
+        "symbol": "BNBUSDT",
+        "tick_size": 0.01
+      },
+      {
+        "min_notional": 50.0,
+        "min_qty": 0.001,
+        "step_size": 0.001,
+        "symbol": "BTCUSDT",
+        "tick_size": 0.1
+      },
+      {
+        "min_notional": 5.0,
+        "min_qty": 0.001,
+        "step_size": 0.001,
+        "symbol": "COMPUSDT",
+        "tick_size": 0.01
+      },
+      {
+        "min_notional": 5.0,
+        "min_qty": 0.1,
+        "step_size": 0.1,
+        "symbol": "CRVUSDT",
+        "tick_size": 0.0001
+      },
+      {
+        "min_notional": 5.0,
+        "min_qty": 0.001,
+        "step_size": 0.001,
+        "symbol": "DASHUSDT",
+        "tick_size": 0.01
+      },
+      {
+        "min_notional": 5.0,
+        "min_qty": 1.0,
+        "step_size": 1.0,
+        "symbol": "DOGEUSDT",
+        "tick_size": 1e-05
+      },
+      {
+        "min_notional": 5.0,
+        "min_qty": 0.1,
+        "step_size": 0.1,
+        "symbol": "DOTUSDT",
+        "tick_size": 0.0001
+      },
+      {
+        "min_notional": 5.0,
+        "min_qty": 0.1,
+        "step_size": 0.1,
+        "symbol": "DYDXUSDT",
+        "tick_size": 0.0001
+      },
+      {
+        "min_notional": 5.0,
+        "min_qty": 0.1,
+        "step_size": 0.1,
+        "symbol": "EGLDUSDT",
+        "tick_size": 0.001
+      },
+      {
+        "min_notional": 20.0,
+        "min_qty": 0.01,
+        "step_size": 0.01,
+        "symbol": "ETCUSDT",
+        "tick_size": 0.001
+      },
+      {
+        "min_notional": 20.0,
+        "min_qty": 0.001,
+        "step_size": 0.001,
+        "symbol": "ETHUSDT",
+        "tick_size": 0.01
+      },
+      {
+        "min_notional": 5.0,
+        "min_qty": 0.1,
+        "step_size": 0.1,
+        "symbol": "FILUSDT",
+        "tick_size": 0.0001
+      },
+      {
+        "min_notional": 5.0,
+        "min_qty": 1.0,
+        "step_size": 1.0,
+        "symbol": "GALAUSDT",
+        "tick_size": 1e-06
+      },
+      {
+        "min_notional": 5.0,
+        "min_qty": 1.0,
+        "step_size": 1.0,
+        "symbol": "HBARUSDT",
+        "tick_size": 1e-05
+      },
+      {
+        "min_notional": 5.0,
+        "min_qty": 1.0,
+        "step_size": 1.0,
+        "symbol": "ICPUSDT",
+        "tick_size": 0.001
+      },
+      {
+        "min_notional": 5.0,
+        "min_qty": 0.1,
+        "step_size": 0.1,
+        "symbol": "INJUSDT",
+        "tick_size": 0.001
+      },
+      {
+        "min_notional": 20.0,
+        "min_qty": 0.01,
+        "step_size": 0.01,
+        "symbol": "LINKUSDT",
+        "tick_size": 0.001
+      },
+      {
+        "min_notional": 5.0,
+        "min_qty": 1.0,
+        "step_size": 1.0,
+        "symbol": "NEARUSDT",
+        "tick_size": 0.001
+      },
+      {
+        "min_notional": 5.0,
+        "min_qty": 0.01,
+        "step_size": 0.01,
+        "symbol": "SOLUSDT",
+        "tick_size": 0.01
+      },
+      {
+        "min_notional": 5.0,
+        "min_qty": 1.0,
+        "step_size": 1.0,
+        "symbol": "TRXUSDT",
+        "tick_size": 1e-05
+      },
+      {
+        "min_notional": 5.0,
+        "min_qty": 1.0,
+        "step_size": 1.0,
+        "symbol": "UNIUSDT",
+        "tick_size": 0.001
+      },
+      {
+        "min_notional": 5.0,
+        "min_qty": 0.1,
+        "step_size": 0.1,
+        "symbol": "XRPUSDT",
+        "tick_size": 0.0001
+      },
+      {
+        "min_notional": 5.0,
+        "min_qty": 0.001,
+        "step_size": 0.001,
+        "symbol": "ZECUSDT",
+        "tick_size": 0.01
+      }
+    ],
+    "path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/audit/perp-exchangeInfo-30-symbols-2026-07-23.json",
+    "serverTime": 1784815217781,
+    "source_sha256": "79a2ac5757d0677b9be8656cb972dfcf139e7ace8854d9065a06294dbdf06fe2",
+    "source_url": "https://fapi.binance.com/fapi/v1/exchangeInfo",
+    "symbol_count": 30,
+    "symbols": [
+      "AAVEUSDT",
+      "ADAUSDT",
+      "ALGOUSDT",
+      "APTUSDT",
+      "ATOMUSDT",
+      "AVAXUSDT",
+      "BCHUSDT",
+      "BNBUSDT",
+      "BTCUSDT",
+      "COMPUSDT",
+      "CRVUSDT",
+      "DASHUSDT",
+      "DOGEUSDT",
+      "DOTUSDT",
+      "DYDXUSDT",
+      "EGLDUSDT",
+      "ETCUSDT",
+      "ETHUSDT",
+      "FILUSDT",
+      "GALAUSDT",
+      "HBARUSDT",
+      "ICPUSDT",
+      "INJUSDT",
+      "LINKUSDT",
+      "NEARUSDT",
+      "SOLUSDT",
+      "TRXUSDT",
+      "UNIUSDT",
+      "XRPUSDT",
+      "ZECUSDT"
+    ]
+  },
+  "funding": {
+    "bytes": 7417856,
+    "canonical_schedule": "BTCUSDT observed timestamps in fixed D0 interval",
+    "path": "data/funding_rates.db",
+    "sha256": "356e270dacce36b4703364545beeafe402f1aa55aa11caebc5708f5f3b6767a1",
+    "symbols": [
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "BTCUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "AAVEUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "ADAUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "ALGOUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "APTUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "ATOMUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "AVAXUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "BCHUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "BNBUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "COMPUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "CRVUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "DASHUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "DOGEUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "DOTUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "DYDXUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "EGLDUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "ETCUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "ETHUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "FILUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "GALAUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "HBARUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "ICPUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "INJUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "LINKUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "NEARUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "SOLUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "TRXUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "UNIUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "XRPUSDT"
+      },
+      {
+        "actual": 3741,
+        "complete": true,
+        "duplicate": 0,
+        "expected": 3741,
+        "first_ms": 1672531200000,
+        "last_ms": 1780243200004,
+        "missing": 0,
+        "symbol": "ZECUSDT"
+      }
+    ]
+  },
+  "market": {
+    "bytes": 118879649792,
+    "path": "data/market_data_full.db",
+    "sha256": "4ceed5eb0bcfdea701a6e156d570cfb33c2ea7274413abee5c93116fc28afec4",
+    "sha256_bound_to_bytes": true,
+    "sha256_evidence": "independent sha256sum before immutable replay source commit",
+    "symbols": [
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "BTCUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "AAVEUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "ADAUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "ALGOUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "APTUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "ATOMUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "AVAXUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "BCHUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "BNBUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "COMPUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "CRVUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "DASHUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "DOGEUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "DOTUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "DYDXUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "EGLDUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "ETCUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "ETHUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "FILUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "GALAUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "HBARUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "ICPUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "INJUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "LINKUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "NEARUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "SOLUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "TRXUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "UNIUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "XRPUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "ZECUSDT"
+      }
+    ]
+  }
+}

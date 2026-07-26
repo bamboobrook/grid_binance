@@ -1,0 +1,29 @@
+{
+  "first_row": {
+    "equity": 2000.0,
+    "event": "one_minute_risk_path",
+    "groups": 0,
+    "maintenance": 0.0,
+    "margin": 0.0,
+    "pending": 0,
+    "positions": 0,
+    "reserved_quote": 0.0,
+    "timestamp": 1738368000000,
+    "wallet": 2000.0
+  },
+  "last_row": {
+    "equity": 2000.0,
+    "event": "one_minute_risk_path",
+    "groups": 0,
+    "maintenance": 0.0,
+    "margin": 0.0,
+    "pending": 0,
+    "positions": 0,
+    "reserved_quote": 0.0,
+    "timestamp": 1739577540000,
+    "wallet": 2000.0
+  },
+  "raw_path": "artifacts-local/round26/7a8e792696d955556a2725daf3d099c041c6397c/g0/traces/bear-fdr-account.jsonl",
+  "rows": 20160,
+  "sha256": "b97908e4365c9fdd75d56251d8133f4c03f52ede92ab016be96b6612aeed9d36"
+}

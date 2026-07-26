@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "fingerprint": "R26_WEEKLY_TOP20_REFERENCE_SPREAD_COPULA_MARTIN",
+  "status": "INTERRUPTED_RESUMABLE_RUNTIME_CONFIGURATION",
+  "source_commit": "7a8e792696d955556a2725daf3d099c041c6397c",
+  "validator_commit": "ac620811a599f352c4019501edd1d71494ba15aa",
+  "attempt_argv": "cargo run --release -p r24-research --bin r26_validate -- --phase g0-g2 --artifact-root artifacts-local/round26/7a8e792696d955556a2725daf3d099c041c6397c --resume",
+  "interrupted_utc": "2026-07-26T01:59:31+00:00",
+  "total_leg_tasks": 9570,
+  "checkpointed_leg_tasks": 4945,
+  "exit_code": 1,
+  "reason": "Eight process workers each inherited 15 MKL threads and 30 OpenMP threads on a 30-core host, causing severe oversubscription during 5m statsmodels fits.",
+  "resume_runtime": {
+    "workers": 16,
+    "MKL_NUM_THREADS": 1,
+    "OMP_NUM_THREADS": 1,
+    "semantic_change": false
+  }
+}

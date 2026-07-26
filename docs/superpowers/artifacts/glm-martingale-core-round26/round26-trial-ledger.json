@@ -1,0 +1,7 @@
+{
+  "global_prior_invalid_round25r_terminals": 16,
+  "global_trial_count_minimum": 24,
+  "no_fit_no_signal_rejection_empty_and_failed_in_denominator": true,
+  "round26_activation_trials": 8,
+  "round26_g2_trials": 0
+}

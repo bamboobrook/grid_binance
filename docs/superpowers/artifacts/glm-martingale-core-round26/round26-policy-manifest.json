@@ -1,0 +1,37 @@
+{
+  "activation_configs": 8,
+  "baseline_principal": 2000,
+  "budgets": [
+    500,
+    750,
+    1000,
+    1500,
+    2000,
+    3000,
+    4000,
+    4999
+  ],
+  "cold_starts_days": [
+    0,
+    30,
+    60,
+    90,
+    120
+  ],
+  "g2_entry_alpha": [
+    0.1,
+    0.2
+  ],
+  "g2_so_step_sigma": [
+    0.5,
+    0.75
+  ],
+  "leverage_cap": 2.0,
+  "max_active_groups": 3,
+  "relative_layers": [
+    1.0,
+    1.25,
+    1.55,
+    1.9
+  ]
+}
