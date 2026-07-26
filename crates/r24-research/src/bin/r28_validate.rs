@@ -343,6 +343,7 @@ fn validate_trace_rows(rows: &[TraceEvent], result: &serde_json::Value) -> Trace
                     output.violations.push("funding_on_fill".into());
                 }
                 let qty = row.filled_qty.unwrap_or(f64::NAN);
+                let requested = row.requested_qty.unwrap_or(f64::NAN);
                 let price = row.fill_price.unwrap_or(f64::NAN);
                 if !(qty > 0.0 && price > 0.0 && qty.is_finite() && price.is_finite()) {
                     output.violations.push("fill_qty_price".into());
@@ -358,9 +359,10 @@ fn validate_trace_rows(rows: &[TraceEvent], result: &serde_json::Value) -> Trace
                     .as_f64()
                     .unwrap_or(f64::NAN);
                 if !(step > 0.0
-                    && qty + 1e-12 >= min_qty
-                    && qty * price + 1e-8 >= min_notional
-                    && ((qty / step) - (qty / step).round()).abs() < 1e-7)
+                    && requested + 1e-12 >= min_qty
+                    && requested * price + 1e-8 >= min_notional
+                    && ((requested / step) - (requested / step).round()).abs() < 1e-7
+                    && qty <= requested + 1e-12)
                 {
                     output.violations.push("filter_resolved_quantity".into());
                 }
@@ -395,7 +397,32 @@ fn validate_trace_rows(rows: &[TraceEvent], result: &serde_json::Value) -> Trace
                 state.quantity = total;
                 output.all_in_cost += row.fee + row.slippage;
             }
-            "delayed_order" => {}
+            "delayed_order" => {
+                let owner = row.metadata["pending_owner"].as_str().unwrap_or_default();
+                let pending = row.metadata["pending_reserve"].as_f64().unwrap_or(f64::NAN);
+                if owner.is_empty() || !pending.is_finite() || pending <= 0.0 {
+                    output.violations.push("pending_reserve_metadata".into());
+                } else {
+                    reserve_groups.insert(owner.into(), pending);
+                    reserve = reserve_groups.values().sum();
+                }
+            }
+            "pending_release" => {
+                let owner = row.metadata["pending_owner"].as_str().unwrap_or_default();
+                let expected = row.metadata["pending_reserve"].as_f64().unwrap_or(f64::NAN);
+                let released = reserve_groups.remove(owner).unwrap_or(f64::NAN);
+                if !expected.is_finite() || (released - expected).abs() > 1e-7 {
+                    output.violations.push("pending_release_rebuild".into());
+                }
+                reserve = reserve_groups.values().sum();
+                let legging = row.metadata["legging_cost"].as_f64().unwrap_or(f64::NAN);
+                if !legging.is_finite() || legging < 0.0 {
+                    output.violations.push("legging_cost".into());
+                } else {
+                    expected_wallet -= legging;
+                    output.all_in_cost += legging;
+                }
+            }
             "funding" => {
                 output.funding_count += 1;
                 expected_wallet += row.funding;
@@ -499,7 +526,12 @@ fn validate_trace_rows(rows: &[TraceEvent], result: &serde_json::Value) -> Trace
                 reserve_groups.clear();
                 reserve = 0.0;
             }
-            "freeze_so" | "so" | "so_reject" | "tp" | "abort" | "paired_flatten" => {}
+            "paired_flatten" => {
+                if let Some(group) = row.group_id.as_ref() {
+                    paired_levels.retain(|(owner, _), _| owner != group);
+                }
+            }
+            "freeze_so" | "so" | "so_reject" | "tp" | "abort" => {}
             other => output
                 .violations
                 .push(format!("unknown_event_type:{other}")),

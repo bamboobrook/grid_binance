@@ -213,6 +213,14 @@ pub struct FillOutcome {
     pub reason: String,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct PendingFillOutcome {
+    pub order: PendingOrder,
+    pub execution_price: f64,
+    pub legging_cost: f64,
+    pub fill: FillOutcome,
+}
+
 impl SharedAccount {
     pub fn new(principal: f64, config: EngineConfig) -> Result<Self> {
         if principal <= 0.0 || principal >= 5000.0 {
@@ -551,13 +559,14 @@ impl SharedAccount {
         &mut self,
         timestamp: i64,
         execution_prices: &BTreeMap<String, f64>,
-    ) -> Result<()> {
+    ) -> Result<Vec<PendingFillOutcome>> {
         let due = self
             .pending_orders
             .values()
             .filter(|order| order.due_timestamp <= timestamp)
             .map(|order| order.order_id.clone())
             .collect::<Vec<_>>();
+        let mut outcomes = Vec::with_capacity(due.len());
         for order_id in due {
             let pending = self.pending_orders.remove(&order_id).unwrap();
             self.release_owner_reserve(timestamp, &pending.order_id, "pending_leg_consumed")?;
@@ -583,19 +592,25 @@ impl SharedAccount {
             if let Some(trace) = self.traces.last_mut() {
                 trace.metadata = serde_json::json!({"legging_cost":legging_loss});
             }
-            self.fill_now(FillRequest {
+            let fill = self.fill_now(FillRequest {
                 timestamp,
-                order_id: pending.order_id,
-                group_id: pending.group_id,
-                key: pending.key,
+                order_id: pending.order_id.clone(),
+                group_id: pending.group_id.clone(),
+                key: pending.key.clone(),
                 requested_quantity: pending.quantity,
                 price,
                 fill_fraction: 1.0,
                 delayed_bars: 0,
                 reject: false,
             })?;
+            outcomes.push(PendingFillOutcome {
+                order: pending,
+                execution_price: price,
+                legging_cost: legging_loss,
+                fill,
+            });
         }
-        Ok(())
+        Ok(outcomes)
     }
 
     pub fn execute_pair_hedge_or_flatten(
@@ -1473,9 +1488,14 @@ mod tests {
         let mut delayed = request("o", "BTCUSDT", 100.0);
         delayed.delayed_bars = 2;
         account.submit(delayed).unwrap();
-        account
+        let outcomes = account
             .process_pending(3, &BTreeMap::from([("BTCUSDT".into(), 110.0)]))
             .unwrap();
+        assert_eq!(outcomes.len(), 1);
+        assert_eq!(outcomes[0].order.order_id, "o");
+        assert_eq!(outcomes[0].execution_price, 110.0);
+        assert_eq!(outcomes[0].legging_cost, 10.0);
+        assert!(outcomes[0].fill.accepted);
         assert!(account
             .traces
             .iter()

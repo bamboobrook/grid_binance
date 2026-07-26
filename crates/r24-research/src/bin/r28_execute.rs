@@ -9,8 +9,8 @@ use std::time::Instant;
 use anyhow::{bail, Context, Result};
 use chrono::Utc;
 use r24_engine::{
-    EngineConfig, FillRequest, FrozenLeg, MarketType, MartinGroup, Position, PositionKey,
-    PositionMode, SharedAccount,
+    EngineConfig, FillRequest, FrozenLeg, MarketType, MartinGroup, PendingFillOutcome, Position,
+    PositionKey, PositionMode, SharedAccount,
 };
 use r24_research::r25::{gaussian_conditional_h, student_t_conditional_h};
 use r24_research::r25_corrected::empirical_cdf;
@@ -196,6 +196,7 @@ struct ActiveGroup {
     deadline_ms: i64,
     freeze_so: bool,
     cycle_start_wallet: f64,
+    signal: SignalRow,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -2344,8 +2345,6 @@ fn replay_policy(
         let path_wallet = account.wallet_balance;
         let path_reserve = account.reserved_quote;
         let path_positions = account.positions.clone();
-        let adverse_snapshot = risk_positions(&account, &bars);
-        let adverse_equity = independent_equity(&account, &bars, true);
         if had_active {
             let lows = bars
                 .iter()
@@ -2453,7 +2452,23 @@ fn replay_policy(
             .map(|(symbol, row)| (symbol.clone(), row.open))
             .collect::<BTreeMap<_, _>>();
         if !account.pending_orders.is_empty() {
-            account.process_pending(cursor, &opens)?;
+            let wallet_before = account.wallet_balance;
+            let reserve_before = account.reserved_quote;
+            let outcomes = account.process_pending(cursor, &opens)?;
+            emit_pending_outcomes(
+                &mut account,
+                &mut stats,
+                &mut trace_writer,
+                &mut trace_sequence,
+                policy,
+                filters,
+                options,
+                &active,
+                outcomes,
+                wallet_before,
+                reserve_before,
+                cursor,
+            )?;
             account.traces.clear();
         }
 
@@ -2615,13 +2630,19 @@ fn replay_policy(
         }
         stats.max_active_groups = stats.max_active_groups.max(active.len());
         if had_active || !active.is_empty() {
+            let mut risk_bars = BTreeMap::new();
+            for key in account.positions.keys() {
+                if !risk_bars.contains_key(&key.symbol) {
+                    risk_bars.insert(key.symbol.clone(), cache.bar(market, &key.symbol, cursor)?);
+                }
+            }
             write_active_risk(
                 &mut risk_writer,
                 cursor,
                 &account,
-                path_wallet,
-                adverse_equity.min(account.equity()),
-                adverse_snapshot,
+                account.wallet_balance,
+                independent_equity(&account, &risk_bars, true),
+                risk_positions(&account, &risk_bars),
             )?;
         } else {
             write_idle(&mut risk_writer, cursor, cursor + MINUTE_MS, &account)?;
@@ -3037,6 +3058,7 @@ fn execute_fo(
             deadline_ms: (timestamp + row.deadline_span_ms).min(END_MS),
             freeze_so: !row.reliable_regime,
             cycle_start_wallet,
+            signal: row.clone(),
         },
     );
     stats.executed_intents += 1;
@@ -3171,6 +3193,206 @@ fn fill_pair_level(
 }
 
 #[allow(clippy::too_many_arguments)]
+fn emit_pending_outcomes(
+    account: &mut SharedAccount,
+    stats: &mut ReplayStats,
+    writer: &mut BufWriter<File>,
+    sequence: &mut u64,
+    policy: &Policy,
+    filters: &BTreeMap<String, FilterRow>,
+    options: &ReplayOptions,
+    active: &BTreeMap<String, ActiveGroup>,
+    outcomes: Vec<PendingFillOutcome>,
+    mut wallet: f64,
+    mut reserve: f64,
+    timestamp: i64,
+) -> Result<()> {
+    let initial_wallet = wallet;
+    for outcome in outcomes {
+        let group = active
+            .get(&outcome.order.group_id)
+            .context("pending fill active group missing")?;
+        let leg = if outcome.order.key.symbol == group.left {
+            "left"
+        } else if outcome.order.key.symbol == group.right {
+            "right"
+        } else {
+            bail!("pending fill symbol outside frozen group")
+        };
+        let level = outcome
+            .order
+            .order_id
+            .rsplit('-')
+            .nth(1)
+            .context("pending order level missing")?
+            .parse::<usize>()?;
+        let weight = if leg == "left" {
+            group.weight_left
+        } else {
+            group.weight_right
+        };
+        let filter = filters
+            .get(&outcome.order.key.symbol)
+            .context("pending fill filter missing")?;
+
+        let release_before = reserve;
+        reserve = (reserve - outcome.order.reserved_quote).max(0.0);
+        let wallet_before = wallet;
+        wallet -= outcome.legging_cost;
+        emit_trace(
+            writer,
+            sequence,
+            TraceEvent {
+                event_id: String::new(),
+                timestamp,
+                completed_signal_ms: Some(group.signal.signal_ms),
+                eligible_open_ms: Some(group.signal.eligible_open_ms),
+                event_type: "pending_release".into(),
+                policy_id: policy.policy_id.clone(),
+                pair_id: Some(group.pair_id.clone()),
+                group_id: Some(group.group_id.clone()),
+                model_hash: Some(group.model_hash.clone()),
+                leg_id: Some(leg.into()),
+                symbol: Some(outcome.order.key.symbol.clone()),
+                direction: Some(group.direction),
+                side: Some(side_name(outcome.order.key.mode).into()),
+                position_mode: Some(mode_name(outcome.order.key.mode).into()),
+                level: Some(level),
+                requested_qty: Some(outcome.order.quantity),
+                filled_qty: Some(0.0),
+                open_price: Some(outcome.order.price),
+                fill_price: None,
+                mark_price: Some(outcome.execution_price),
+                fee: 0.0,
+                slippage: 0.0,
+                funding: 0.0,
+                wallet_before,
+                wallet_after: wallet,
+                equity: account.equity(),
+                reserve_before: release_before,
+                reserve_after: reserve,
+                margin: account.initial_margin(),
+                maintenance: account.maintenance_margin(),
+                calendar_block: calendar_block(timestamp)?,
+                rejection_reason: None,
+                close_reason: None,
+                metadata: serde_json::json!({
+                    "family":group.family,"pending_owner":outcome.order.order_id,
+                    "pending_reserve":outcome.order.reserved_quote,"legging_cost":outcome.legging_cost
+                }),
+            },
+        )?;
+
+        if outcome.fill.accepted && outcome.fill.filled_quantity > 0.0 {
+            let notional = outcome.fill.filled_quantity * outcome.execution_price;
+            let fee = notional * account.config.fee_bps / 10_000.0;
+            let slippage = notional * account.config.slippage_bps / 10_000.0;
+            let before = wallet;
+            wallet -= fee + slippage;
+            emit_trace(
+                writer,
+                sequence,
+                TraceEvent {
+                    event_id: String::new(),
+                    timestamp,
+                    completed_signal_ms: Some(group.signal.signal_ms),
+                    eligible_open_ms: Some(group.signal.eligible_open_ms),
+                    event_type: "fill".into(),
+                    policy_id: policy.policy_id.clone(),
+                    pair_id: Some(group.pair_id.clone()),
+                    group_id: Some(group.group_id.clone()),
+                    model_hash: Some(group.model_hash.clone()),
+                    leg_id: Some(leg.into()),
+                    symbol: Some(outcome.order.key.symbol.clone()),
+                    direction: Some(group.direction),
+                    side: Some(side_name(outcome.order.key.mode).into()),
+                    position_mode: Some(mode_name(outcome.order.key.mode).into()),
+                    level: Some(level),
+                    requested_qty: Some(outcome.order.quantity),
+                    filled_qty: Some(outcome.fill.filled_quantity),
+                    open_price: Some(outcome.order.price),
+                    fill_price: Some(outcome.execution_price),
+                    mark_price: Some(outcome.execution_price),
+                    fee,
+                    slippage,
+                    funding: 0.0,
+                    wallet_before: before,
+                    wallet_after: wallet,
+                    equity: account.equity(),
+                    reserve_before: reserve,
+                    reserve_after: reserve,
+                    margin: account.initial_margin(),
+                    maintenance: account.maintenance_margin(),
+                    calendar_block: calendar_block(timestamp)?,
+                    rejection_reason: None,
+                    close_reason: None,
+                    metadata: serde_json::json!({
+                        "family":group.signal.family,"config_id":group.signal.config_id,
+                        "signal_value":group.signal.value,"h_left":group.signal.h_left,
+                        "h_right":group.signal.h_right,"alpha":group.signal.alpha,
+                        "beta_left":group.signal.beta_left,"beta_right":group.signal.beta_right,
+                        "reliable_regime":group.signal.reliable_regime,"weight":weight,
+                        "weighting":if group.signal.family=="T1"{"BETA"}else{match policy.weighting{Weighting::Beta=>"BETA",Weighting::Equal=>"EQUAL"}},
+                        "filter_step_size":filter.step_size*options.filter_step_multiplier,
+                        "filter_min_qty":filter.min_qty,
+                        "filter_min_notional":filter.min_notional*options.min_notional_multiplier,
+                        "delayed_bars":options.leg_delay
+                    }),
+                },
+            )?;
+        } else {
+            emit_trace(
+                writer,
+                sequence,
+                TraceEvent {
+                    event_id: String::new(),
+                    timestamp,
+                    completed_signal_ms: Some(group.signal.signal_ms),
+                    eligible_open_ms: Some(group.signal.eligible_open_ms),
+                    event_type: "order_reject".into(),
+                    policy_id: policy.policy_id.clone(),
+                    pair_id: Some(group.pair_id.clone()),
+                    group_id: Some(group.group_id.clone()),
+                    model_hash: Some(group.model_hash.clone()),
+                    leg_id: Some(leg.into()),
+                    symbol: Some(outcome.order.key.symbol.clone()),
+                    direction: Some(group.direction),
+                    side: Some(side_name(outcome.order.key.mode).into()),
+                    position_mode: Some(mode_name(outcome.order.key.mode).into()),
+                    level: Some(level),
+                    requested_qty: Some(outcome.order.quantity),
+                    filled_qty: Some(0.0),
+                    open_price: Some(outcome.order.price),
+                    fill_price: None,
+                    mark_price: Some(outcome.execution_price),
+                    fee: 0.0,
+                    slippage: 0.0,
+                    funding: 0.0,
+                    wallet_before: wallet,
+                    wallet_after: wallet,
+                    equity: account.equity(),
+                    reserve_before: reserve,
+                    reserve_after: reserve,
+                    margin: account.initial_margin(),
+                    maintenance: account.maintenance_margin(),
+                    calendar_block: calendar_block(timestamp)?,
+                    rejection_reason: Some(outcome.fill.reason),
+                    close_reason: None,
+                    metadata: serde_json::json!({"family":group.family,"delayed_bars":options.leg_delay}),
+                },
+            )?;
+        }
+    }
+    book_delta(stats, timestamp, initial_wallet, account.wallet_balance)?;
+    if (wallet - account.wallet_balance).abs() > 1e-7
+        || (reserve - account.reserved_quote).abs() > 1e-7
+    {
+        bail!("pending trace reconciliation mismatch")
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
 fn submit_leg(
     account: &mut SharedAccount,
     stats: &mut ReplayStats,
@@ -3192,9 +3414,10 @@ fn submit_leg(
     let symbol = if leg == "left" { &row.left } else { &row.right };
     let before = account.wallet_balance;
     let reserve_before = account.reserved_quote;
+    let order_id = format!("{group_id}-{level}-{leg}");
     let request = FillRequest {
         timestamp: row.eligible_open_ms,
-        order_id: format!("{group_id}-{level}-{leg}"),
+        order_id: order_id.clone(),
         group_id: group_id.into(),
         key: position_key(symbol, mode, group_id),
         requested_quantity: quantity,
@@ -3259,7 +3482,9 @@ fn submit_leg(
             "reliable_regime":row.reliable_regime,"weight":weight,
             "weighting":if row.family=="T1"{"BETA"}else{match policy.weighting{Weighting::Beta=>"BETA",Weighting::Equal=>"EQUAL"}},
             "filter_step_size":filter.step_size*options.filter_step_multiplier,
-            "filter_min_qty":filter.min_qty,"filter_min_notional":filter.min_notional*options.min_notional_multiplier}),
+            "filter_min_qty":filter.min_qty,"filter_min_notional":filter.min_notional*options.min_notional_multiplier,
+            "pending_owner":(options.leg_delay>0).then_some(order_id.clone()),
+            "pending_reserve":account.reserve_ledger.get(&order_id).map(|components|components.total())}),
         },
     )?;
     account.traces.clear();
