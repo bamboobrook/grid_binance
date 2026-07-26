@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "status": "wrong_source_root_operational_attempt",
+  "attempted_raw_root": "artifacts-local/round27/739ca15bd35442093028da6c0078d9673fe054fa",
+  "actual_source_commit": "739ca15b4d42948c900cf0b779da35af05f6e31c",
+  "phase_result": "R0_PASS_BUT_NON_AUTHORITATIVE_ROOT",
+  "action": "retain old raw directory and rerun identical R0 under the exact source commit basename"
+}

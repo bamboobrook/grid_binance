@@ -186,6 +186,12 @@ fn validate_risk_rle(path: &Path, violations: &mut Vec<String>) -> Result<(i64, 
 }
 
 fn update_dd(row: &serde_json::Value, peak: &mut f64, max_dd: &mut f64) -> Result<()> {
+    if let Some(adverse) = row["adverse_equity"].as_f64() {
+        *peak = peak.max(adverse);
+        if *peak > 0.0 {
+            *max_dd = max_dd.max((*peak - adverse) / *peak * 100.0);
+        }
+    }
     let equity = row["equity"].as_f64().context("risk equity missing")?;
     *peak = peak.max(equity);
     if *peak > 0.0 {

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "superseded_implementation",
+  "source_commit": "739ca15b4d42948c900cf0b779da35af05f6e31c",
+  "failed_stage": "account_validator",
+  "model_validator": "PASS_7166_LEGS_243_COPULA_PAIRS_16_PBD_PAIRS",
+  "violations": [
+    "idle RLE boundaries used completed signal close timestamps ending in 999 instead of next-minute open timestamps",
+    "active risk rows omitted the intra-minute high/low adverse equity used by SharedAccount drawdown"
+  ],
+  "action": "fix trace semantics, create a new immutable source commit, retain this raw root, and rerun from R0"
+}

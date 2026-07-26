@@ -758,7 +758,8 @@ fn replay_policy(
         if excursion.entry_ms < last_processed || account.terminated {
             continue;
         }
-        write_idle_span(&mut writer, last_processed, excursion.entry_ms, &account)?;
+        let entry_open_ms = excursion.entry_ms + 1;
+        write_idle_span(&mut writer, last_processed, entry_open_ms, &account)?;
         let symbols = excursion.pair.symbols();
         let (left, right) = next_bars(
             connection,
@@ -878,7 +879,7 @@ fn replay_policy(
         let cycle_pnl = account.wallet_balance - cycle_start_wallet;
         *pair_pnl.entry(excursion.pair.id().to_string()).or_default() += cycle_pnl;
         block_pnl[excursion.block] += cycle_pnl;
-        last_processed = excursion.exit_ms + MINUTE_MS;
+        last_processed = excursion.exit_ms + 1 + MINUTE_MS;
     }
     write_idle_span(&mut writer, last_processed, END_MS, &account)?;
     writer.flush()?;
@@ -1370,9 +1371,19 @@ fn write_risk_minute(
     timestamp: i64,
     account: &SharedAccount,
 ) -> Result<()> {
+    let adverse_equity = account
+        .traces
+        .iter()
+        .rev()
+        .find(|row| row.timestamp == timestamp && row.event == "adverse_bar_path")
+        .and_then(|row| row.quote)
+        .unwrap_or_else(|| account.equity());
     serde_json::to_writer(
         &mut *writer,
-        &serde_json::json!({"kind":"active_1m","timestamp":timestamp,"wallet":account.wallet_balance,"equity":account.equity(),"reserve":account.reserved_quote,"margin":account.initial_margin(),"maintenance":account.maintenance_margin(),"positions":account.positions.len(),"groups":account.groups.len(),"pending":account.pending_orders.len()}),
+        &serde_json::json!({"kind":"active_1m","timestamp":timestamp,"wallet":account.wallet_balance,
+            "adverse_equity":adverse_equity,"equity":account.equity(),"reserve":account.reserved_quote,
+            "margin":account.initial_margin(),"maintenance":account.maintenance_margin(),
+            "positions":account.positions.len(),"groups":account.groups.len(),"pending":account.pending_orders.len()}),
     )?;
     writer.write_all(b"\n")?;
     Ok(())
