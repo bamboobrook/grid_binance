@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "plan": "docs/superpowers/plans/2026-07-26-glm-martingale-core-round28-corrected-concurrent-asymmetric-plan.md",
+  "plan_commit": "fd793444b5cdaf28f8faef2457845cbeb1257c0b",
+  "round27_source_commit": "aaa02fda4e588ced0359318465ee682c677ae00c",
+  "round27_source_tree": "42c605916e4419e4cd556125e82dc0609205f95f",
+  "round27_raw_root": "artifacts-local/round27/aaa02fda4e588ced0359318465ee682c677ae00c",
+  "inherited": [
+    "D0 immutable data",
+    "152 weekly anchors",
+    "formation-only Top-20",
+    "C0 RAW model snapshots",
+    "Round 27 raw failure evidence"
+  ],
+  "revoked": [
+    "Round 27 authority",
+    "Round 27 G2/G3",
+    "Round 27 account validator pass",
+    "Round 27 block metrics",
+    "Round 27 family closure"
+  ]
+}

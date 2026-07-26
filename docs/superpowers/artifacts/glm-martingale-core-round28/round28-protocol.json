@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "plan_commit": "fd793444b5cdaf28f8faef2457845cbeb1257c0b",
+  "round27_corrected_status": "MATERIALLY_INCOMPLETE_INVALID_G2_AND_FAMILY_CLOSURE",
+  "round27_source_commit": "aaa02fda4e588ced0359318465ee682c677ae00c",
+  "outer_interval": "[2023-07-01T00:00:00Z,2026-05-29T16:00:00Z)",
+  "account": "ONE_CONTINUOUS_SHARED_CASH_MARGIN_EQUITY_RESERVE_ACCOUNT",
+  "signal_execution": "COMPLETED_SIGNAL_THEN_NEXT_AVAILABLE_1M_OPEN",
+  "max_active_groups": 3,
+  "principal_rule": "STRICTLY_LESS_THAN_5000U",
+  "outer_return_used_for_selection": false
+}

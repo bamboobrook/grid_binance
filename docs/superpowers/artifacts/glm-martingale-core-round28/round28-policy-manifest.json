@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "fingerprint_suffix": "R28-CORRECTED-DIRECTION-CAUSAL-CENSORED-CONCURRENT-CALENDAR12",
+  "c0": {
+    "frequencies": ["1h", "5m"],
+    "formation_days": 21,
+    "entry_alpha": [0.1, 0.2],
+    "so_step_sigma": [0.5, 0.75],
+    "weighting": ["BETA", "EQUAL"],
+    "baseline_trials": 16
+  },
+  "t1": {
+    "variants": ["TAR", "MTAR"],
+    "formation_days": 42,
+    "entry_z": 2.0,
+    "neutral_z": 0.25,
+    "augmented_lags": 1,
+    "threshold_trim": [0.15, 0.85],
+    "bootstrap_replications": 199,
+    "bootstrap_block_bars": 24,
+    "bootstrap_seed": "first_u64_be(SHA256(snapshot_file_stem || pair_id || variant))",
+    "bh_q": 0.05,
+    "so_step_sigma": [0.5, 0.75],
+    "max_baseline_trials": 4
+  },
+  "account": {
+    "principal": 2000,
+    "fo_group_gross_fraction": 0.05,
+    "relative_layers": [1.0, 1.25, 1.55, 1.9],
+    "max_active_groups": 3,
+    "baseline_leverage_cap": 2.0
+  },
+  "g3": {
+    "tiers": [
+      {"name": "conservative", "fo_fraction": 0.05, "leverage_cap": 2.0},
+      {"name": "balanced", "fo_fraction": 0.075, "leverage_cap": 3.0},
+      {"name": "aggressive", "fo_fraction": 0.1, "leverage_cap": 4.0}
+    ],
+    "budgets": [500, 750, 1000, 1500, 2000, 3000, 4000, 4999],
+    "cold_start_days": [0, 30, 60, 90, 120]
+  },
+  "anti_overfit": {
+    "round1_25_corrected_visible_trial_floor": 1112,
+    "round26_activation_trials": 8,
+    "round27_valid_activation_trials": 9,
+    "round1_27_visible_trial_floor": 1129,
+    "round27_invalid_g2_trials_excluded_from_performance_floor": 8
+  },
+  "outer_return_used_for_selection": false
+}
