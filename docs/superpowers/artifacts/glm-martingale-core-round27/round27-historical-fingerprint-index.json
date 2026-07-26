@@ -1,0 +1,1851 @@
+{
+  "decision": "PASS_NEW_PBD_MECHANISM",
+  "entries": [
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round10/exploration-registry.jsonl",
+      "sha256": "07af3d7117c842265df1b503bcfa707160a398dfb27fc71f3679f32cba53f5c9"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round10/r1-r10-corrected-status.json",
+      "sha256": "6870c399e16772f41277c8b05ba7e1ae5f5fb6c98dd561c91f4de9f69a3aae6c"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round10/r10-final-validation.json",
+      "sha256": "5b822cf4e9c9ff3b3ff58da59e733b6e92f3ea41cc36d3e9b30d7894c7c63110"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round10/r10-live-allocator-mainloop-wiring.json",
+      "sha256": "0543aa818d6243133e0afe97b346389606d3eb9d06fdb398ee459616b381fdf2"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round10/r10-r9-winner-live-parity.json",
+      "sha256": "db5ecfc21eeacde8740ecb9cede552e2c7a750971da061eecbe4f1cfcd1fc2ff"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round11/r11-live-allocator-production-wiring.json",
+      "sha256": "23fd200b913757873db412664f13772cfa691f5aa331d6b9c435ad094db8c2a6"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round13/exploration-registry.jsonl",
+      "sha256": "06ff2890c36f73a0614695f407e59070cdd7afa60457a3be5c5bcf35701d3b3e"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round16/r1/gates/production_wiring_real_started_service_no_test_setters.json",
+      "sha256": "e46eba60f1c510f86520bd179835ed587460b4890c0a530ac8fe36a87c709b3a"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round16/r1-r16-corrected-status.json",
+      "sha256": "6949f8321ecb98723e394cc46f1e65e4e419430ac8e7881594b737a897f52389"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/a4/a4_24458740ea.json",
+      "sha256": "7eff25899c486874d02dcc98eb59f5a771dca73aa5f3dce4bb736e47821e0338"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/a4/a4_26c89b17e9.json",
+      "sha256": "c5d04e87345a0e9912cb9b473e19613453c2641814216c31fae69fa9f16f7f8b"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/a4/a4_3002619460.json",
+      "sha256": "027a792bcde65a59a8957534aa3838bb5a53ccd46424bc656843a2b695c35657"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/a4/a4_677781f3fa.json",
+      "sha256": "875a399daeb67b75603f6a190a03b525d5a4cc923e73069f1d4858e6151c5d69"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/a4/a4_a3f7f73d6b.json",
+      "sha256": "9152338c106e286ead0546fbffecd3603ffb9a8f9ceabded1e5354d609b4b82b"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/a4/a4_d58d8b6e58.json",
+      "sha256": "2cc936541c96511f4b1602358c1f2996a4eab4bbbbe4cc4ef6036d204c747c27"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/a4/a4_e6d34bed40.json",
+      "sha256": "bd866b248bafddd60eeadf8583fbee3949cb733521c2d1a5100531be950c774c"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/b1/b1_all_combined_613ec2b7.json",
+      "sha256": "c7bf254526f2cd3e2a480ea6fcc5f684c0c7255308afdabb07059886f987924b"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/b1/b1_plus_breadth_23867f4a.json",
+      "sha256": "08caacd72d39d14b5d202c20695a1885ee92b6a4bb09a4a691c6f4dcbd473d4f"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/b1/b1_plus_cusum_shock_abbb91b5.json",
+      "sha256": "5bf9bd7e493dc194e9c0a807f799a698cf471ec3c14cfd49f3e27bdbade9ad07"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_0009ec2d8218.json",
+      "sha256": "c17211619e63d61a6df646f45fec751ffcb88e7992101ed728e00c2d43e9747b"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_01f4c058a6c4.json",
+      "sha256": "2493a133d9aa74977008e8467f577b6e530d28fce6c8798cc5512fe7d4b469bb"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_02b7c06078f8.json",
+      "sha256": "2e16cd77b9094b6fced97c6d17ac4c8079db26200377c18dd11925a92b1f89ba"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_030150111348.json",
+      "sha256": "e1ea796ead31df12fb711140de0e2c2cfde4832f581b973a170588d35816afdb"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_07a5c3135ead.json",
+      "sha256": "36435eaa54f8bb7d45956584426e30c607abc3d7690c430de075e28a7d630d9c"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_09dd2a09ccea.json",
+      "sha256": "d751d43ddeb66fa71ced0748371ca9a9950f3bd227a553b57260e81857fd0497"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_09ebfd792f74.json",
+      "sha256": "cd2bac130787e99ddba67723f77a091128295ab9dfad8055edae34c8f7bf71c9"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_0bc3f7a14c79.json",
+      "sha256": "7e3d079d7926373c294071b9491d7de69414a4899565a41eb6a4db38fffe5d2d"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_0c515e277735.json",
+      "sha256": "af6f1afda7786acbfc1e5cfb9c22cb1cd079729b3f1d3ca432bf847b554fcfed"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_0cb5993dc074.json",
+      "sha256": "ef24c5131df17b53ced8db28f1540ec123b3453b50af72bd23a5c2218feefb53"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_0db737036edf.json",
+      "sha256": "c2172de711765952e53b5d83d44844572e98588de3558b7df1b824112445a457"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_0eb8d7330b67.json",
+      "sha256": "bdbe9dadae7b38c72c5388e77843b4251df771ab22d49ef2641e41f07f451bb4"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_108b4fa39208.json",
+      "sha256": "693f654fac4c724fbaceffa5126540f4a1759cfd0890a971df075316f686c282"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_1236d6528275.json",
+      "sha256": "68328496786304ccc714fa621ff01f1f31c7da42c243244cae6a2e55ee6e1055"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_163be5e1f9f3.json",
+      "sha256": "5402e82a976ab234da450127241b0bb1ceefe81e91e2ce5d60dc53ba92f656ea"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_16a18759087a.json",
+      "sha256": "c962bc351a9c3cde9358e8dcb16fe9f22eac1c7130ee01597886f1390c4eca20"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_17cda210f170.json",
+      "sha256": "43a5720cb65712c582b56eab9ecf3e331f7e79086a323b3c9337a820b68c4ddd"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_18a643766390.json",
+      "sha256": "98bf1b9a6e03d23e9f6e3123e46b47b030d3c4d135748761719ff780dace6051"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_18fa209c72c5.json",
+      "sha256": "bfe7a53305717cf4d044ac0eecb417d309b7787ed8fa6a8f0af8d6ef0fa8d4d1"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_19bf41877990.json",
+      "sha256": "57c6fe85401465096ecf025b152a62c5592615251ba9882b4f136c770ee885a2"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_1a0ff58d3091.json",
+      "sha256": "f36040f8690fb8b8ec0497658fd3d3f97a631a482c29fe2a697817dda61d7d5e"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_1a4991c90390.json",
+      "sha256": "6b573096ac51aca58761a3c7b6df7df897c0659285259fa91969fa82f75ea6b5"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_1a9c45148b40.json",
+      "sha256": "6b1354b68f41d4fa94c1d17ffe0ff228d3a6a50637a0c0bc71f96c6d43c57142"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_1b5e3572961d.json",
+      "sha256": "6d4d813963f96083a208e6c82ba46716a0efd48ae667bf3f181ffd235deeaecb"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_1cccb96204d8.json",
+      "sha256": "55a72f5a4868a44dd705a9a5e7706d253df48ca9aae9bdd9ecee219f15cdb503"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_1cdebbdb06e3.json",
+      "sha256": "0079e4b17a6067292540abf0e6ac8325bf4cb8ac9fa81bac4a607302a823b508"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_1d7a8596a8ab.json",
+      "sha256": "b72c0041644bc351bb4d2fda0ad50d37177edd998a286935060a2608b6d9271f"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_1dbff31f340f.json",
+      "sha256": "629172794f6f92d58b2dbc4f688ebc56ce7e116dc1419ecb6dadb9ba08d943b2"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_1e6d04c6e1bf.json",
+      "sha256": "803633853d3887e65abb733f4168d7639b875340c94f6556675e328276e45c95"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_20322b73b90f.json",
+      "sha256": "134879cf627068de6981aa8d3f2eac7bac30bbd797c4905dbba4d421147ae75a"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_2082431fd50e.json",
+      "sha256": "7dc46b1fbc759822818727fbefe6fe8cbaa7a1146c35afc4475b103c68a43b1c"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_226171e9720b.json",
+      "sha256": "1a60b0f5c882f44d837261fb376c52c7a3edea983a2fd14b505302f342e7d683"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_244f8e5aad97.json",
+      "sha256": "8f8344d08f42e0550c3fcba03d2ccb4717a90078da03341f73f2d6f682b1befe"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_2482c4da02c9.json",
+      "sha256": "00cfbb37a155691931cc6b5e93491d814b5d0ce49fa07af2a6283dc67f17db06"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_26771a40a806.json",
+      "sha256": "08e0ef23548b23d077345fb40e2c755c841fd60c9618a055149f9121e4b30330"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_293cd0fbfdec.json",
+      "sha256": "13067b19d98ff115e6831d6023c53a715ec260e9e83526e894b6a4d5edbc7371"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_296b7a2e5dd5.json",
+      "sha256": "0faf192793f9646be75d9e4d91466f82afc2cd681c912ef817d956a420a646c9"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_2bfa98e1a30f.json",
+      "sha256": "d6b6c1eb422c374bd98e7ca58d140e47662e6e0dc5e0ece3004f985c1ac72187"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_2f74f02820f4.json",
+      "sha256": "db29b149a503662d09a28af0b4279f4a70c7499e4a9b024d76928d0f9849eabd"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_2fa12ca1e847.json",
+      "sha256": "67db498c93e2fc2a32e28c0d95209d8fda0ce5cce851653030cfe30386e01a51"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_306e80b2ca8a.json",
+      "sha256": "e7b7759bb56199ca50ca6c140bed992b9d7d0a8aedd61e40d1648686a41eeec5"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_30d6ffea91a8.json",
+      "sha256": "29f175d3233db2789d65db1b4c156347596e4f0acbfcff347587f490ba97d177"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_316ee917284b.json",
+      "sha256": "eac35fa0e5cd316247aa58d9262f3c3a0bb3a42c7a37613f85318b3e18c7a10b"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_31f569c64d00.json",
+      "sha256": "5f9e4343fd3574b0f045c7ed3e12af18deb090dc01b83b54c7682202cdc2fcbc"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_35c0449d8406.json",
+      "sha256": "6de08b87d566115903222c182eafd0a8817a788dcdaebdb3b2e8c8f2dcac6999"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_360f89d665eb.json",
+      "sha256": "859e0dce8befd0caf4eef2ed282d7454532346eaf262e6ae532ddb58c6d55a32"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_36b7045a3a97.json",
+      "sha256": "646f60bf59d853f23d0fbd462a4f79c862d7c43901a361b33e98056fe2b83ce3"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_38ba26888bbf.json",
+      "sha256": "2cc47696c53036796c530e318e33e6ff9b6f153649aba0f91d9ff17d15472dfa"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_3aa233b3506e.json",
+      "sha256": "48e977eb05e5982d58f373485d030beef8348ffed971f33aa67e844e2b27f77a"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_3acdcb3330be.json",
+      "sha256": "d9df3e1e3e232f7f44a61b898d9ed2061f229add10ab17755f78605561424653"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_3c1c78ee161b.json",
+      "sha256": "ace7079d6ed15de351be7a3f7f3d0afe8852377e325db0860f9b0a12578b943e"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_3c5841b3cdd6.json",
+      "sha256": "157d19783ceb8590830404d7fc6b1a5cc9224443b2cce8ac3abd1ab79695747e"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_3e66bb7d0ac5.json",
+      "sha256": "fe66fb2827b76f43a31b82bbb11c123379ff60864969b022f9d83fe4138efc4f"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_41afd0c5bf49.json",
+      "sha256": "4c36597c14cb787a8e2b234170c28dd510c757851cf5c4846f6f7c68b0d3e39a"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_420d9a5f031e.json",
+      "sha256": "c1b30775c1e2d04601bdbad57be34dacd027e337cba0841ff3ac05b7910913b7"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_435bb6adfe62.json",
+      "sha256": "fe3329e1c68b11c99055258b99729859adb4a430b874e053d224ddd0fb90960b"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_45b8da7aa0d9.json",
+      "sha256": "3bda5312481131899edf9e693fc7f01d8ab696bfc647dc035e818b59a526cdf1"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_460be4f40899.json",
+      "sha256": "5ff3aeb4dc620d8489972a179b84bc21c02f68aa9ab8f3ac60dec60f28a61ebf"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_4693a3f96bd2.json",
+      "sha256": "68b68bc1b92439a03f98350d978827e0015132c762ac7a84d43d00f2d622f51b"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_4787e9603724.json",
+      "sha256": "06f4dc28ccd14488ed4ae2ff083dd4c65ff935a69652f23f7f0eb1f12ec7823b"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_4af2480be12e.json",
+      "sha256": "97063d55c9ad60366101b8aeed2c3aa97dd0edbb27be9bf304dcfdbb530097c7"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_4ed211966f68.json",
+      "sha256": "240d6c5a42837b757723e5ac0a053807e888d34f73853d70712dc24c633b1137"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_4ef9a6024a77.json",
+      "sha256": "c2f18da83d0aa571b694b6ba1e9e5a4fac7da7eecbf2a0eb05b62580f3790131"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_4fc8be3944e9.json",
+      "sha256": "ddd3bc7c3176158133db7a3e0ed5a818978c9a08b33fa27da9e5cacb385e88c4"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_5145129fce38.json",
+      "sha256": "74cddcdfe5c547762981f3338fcd95be1b87a4990798892f0267ca44c997e4c7"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_523497afb71f.json",
+      "sha256": "145b10d432fc9005d20cd9a69a8f77d6122582937106271a50422510c319f22c"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_52ec2e32aa9b.json",
+      "sha256": "3dbf52f2bd4051e128bd2d2a98375eb7a476782cf282d1ea23647b339df6144b"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_5680ec4e7f24.json",
+      "sha256": "b30456219d3f0224ac639f4bcdb04af344d4e0c7fc5b8ca2cd8e77a4f364bbc5"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_57de11d85564.json",
+      "sha256": "413f24ab859def0946639cc5bf4efb1f0456ae87c7de59e6df27757ec03beef3"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_583a91f91e51.json",
+      "sha256": "20aca557e5f9594e6963185d35708d8398b82d319d8a8d8e16a3bbe9c0277a07"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_58c992a38e68.json",
+      "sha256": "9a60c62eb5ecb92aa6451e603fd617002674a1dcc32019ca71d8f3902ff64702"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_58fec61b642f.json",
+      "sha256": "2312940fc76a6fbe5b67a2a02060605ff83431f5664c0f89013afcddc3de8095"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_590e7d26fbcf.json",
+      "sha256": "ccab3adbf809bea354bae0045778b255f3411e24ea4a626a30bd821c19c59e99"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_5922285749a9.json",
+      "sha256": "721c887de718b062a247e498c641cdae6ba09d9a1942e84a34f57eac5ea0d219"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_59b513d586a5.json",
+      "sha256": "f33fa3923caf544b57ec01b305fab32f6b90d67f796f6e165b96188b0770f08b"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_59cadde7fe72.json",
+      "sha256": "f55ca42f1a7f736ce88edf1442785c2ce0e951a6e0a8a92e4fa9db19bd8ffc2a"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_5a1820132a3a.json",
+      "sha256": "29e9c25b9c4cda37fefc11528bc39d17c85cec8e3b5208f6b8bd147f5e7ee99a"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_5cfd90db96a7.json",
+      "sha256": "018b4fd4b74f2cd3b0630432bb02a3ee9668bc6b9c4cc3cb20ba14c75b806b8c"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_5eed578cf4a6.json",
+      "sha256": "2fd7adf4289eeb7952de3e8f614c2b5757ce7d981985275c723598bc6141cf08"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_5fc2ae07a269.json",
+      "sha256": "fc03517e19404b81ebae1a2c543a12e4791b5446b6faf0426d463eb900e35605"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_61a27891cc2a.json",
+      "sha256": "661ea46bf6f17f8af988d7275999aa6e0a0ea37b30797f4c5114b16d62f13cea"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_625804eb7f2a.json",
+      "sha256": "3d308dd44154cb2edb58b432206cb2e7e378896250d5e1cd589e3601c5241217"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_64c9c6db14e5.json",
+      "sha256": "aeb4c5a61a8c7eb0560bfdf7bb7977ce82d6033c42d3efeeddcdf3e0e3efa868"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_64ecf3722358.json",
+      "sha256": "dd582943dac6012aeda913a547b99820583360efc205ebd6c94a366e1c736be5"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_6580b17c448e.json",
+      "sha256": "8e4289948e8bc67aa88f16d9037d7898a676d4ce103f8f44e6d1f5ca4b274e8e"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_666215d4791f.json",
+      "sha256": "51c9086ea35de25391c20d4b139aa33baa24a9d9431e7f2373e9a8d16d9e97f9"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_697c558d19f4.json",
+      "sha256": "c4a1856caeb5b9495956414c552b7c9715f490e4bb16bfb51c82d72037c22033"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_6a245a9bbc79.json",
+      "sha256": "ea85a26e25da7b37cc563158d5f89594b2a679c13eaefe38b456ec04b2dbe1ef"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_6b069608647a.json",
+      "sha256": "b98420b84189532bc7b99195e93b322d8b674dd7228d6b7b6b26f8a4252c0de0"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_6b98f8953305.json",
+      "sha256": "5ec89ed2cf161dc1c66166fb2981f642093ee90a4e82862867b75e811cc5a6ce"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_6f479de66a5f.json",
+      "sha256": "474f2c5cd29df86fac6200f871df93c7c735c972c9a54f1aaf8b521bfb2ba3e8"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_6f863345dd71.json",
+      "sha256": "d2c2d32b31855277530e01e22f050a53ebb10444a9b05723334f41ec73c01312"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_708f05b041e1.json",
+      "sha256": "7b34e84a4409c0bdfaa56515e388900be9c3107f78b77ebba6e868ce87f72ca5"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_7127c520a3f5.json",
+      "sha256": "b6ddfb4fdf7732206b4512822576de3d3088577ba705925b29652f1251511f6e"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_718c2c8cb32b.json",
+      "sha256": "fcef787c8340588046cf34a22eaccba2de6cd0d6312c2d8b0bd5f770e7fc30fd"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_71fef83f6f01.json",
+      "sha256": "0da0ccc8d8ae7f9b73d3f4d82ce751a2b3efb12b11cdf9dc2f1ad24f325a7737"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_76390d26c99f.json",
+      "sha256": "e4ead35e993582eb70242d9c30cab5e4952795ec02759aef4f7a60af6c855e2a"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_764207e06ffc.json",
+      "sha256": "caefffb88099def7696499b19ed655abaaa8aed32f9c47136ced344d7e8954ab"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_7821d4022678.json",
+      "sha256": "649a3e075b5651fbb52f4bf8a7ecdb6e71416d4f644a2d6884b226d063746a5a"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_79f7c585ba1b.json",
+      "sha256": "b8f83c265385e4f444709dd8c4f6caa5027d69c09bc7b568332c5649d15d524c"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_7a99954d0b31.json",
+      "sha256": "d20a556a9d0590fb281544f8f499a0dd7fa3194c61d549f1877c6fb9ee2eee8c"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_7cefff9dd560.json",
+      "sha256": "ed801f6e02e9b4b9f2a6ec6e0e663dc592487a092660afdb0c21ba9fd0aaa930"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_8264af9e8898.json",
+      "sha256": "3928c1ce2d97cd00df7e6e862417bcc7f874fe55412dc27683c31c23d44d49c5"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_843e792a1a59.json",
+      "sha256": "8d9bab3f927926dee2807995b2a8d1cb4ad8021d61bd1f40808b37c69ac46eb5"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_8485dc83abea.json",
+      "sha256": "507f0a5a48af9f2ee4d72df36330e91e077782a4e1643ce991542dbf571304af"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_851ff64a81da.json",
+      "sha256": "e5d3844ab045ce39cdcb6ad90ee5cc9d7a8cfafa3f85b423be29a33e994fd178"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_8599433c2d06.json",
+      "sha256": "32e9031538be75ddeead7470cc46454b1e5ea9abd6874ca1988203bf404a0bc4"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_8625fa5eb695.json",
+      "sha256": "487d5c531b4f304d88ff45b792c5d3d8bd29eecddb29291e839d8b04fd5f2d13"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_869ec188b8a5.json",
+      "sha256": "fb669420417c5df4f89f9fc279aa1d404bbf723595a91fe21fa22aef5e71c1d5"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_8723c0cb4e66.json",
+      "sha256": "60e8af8f0c8fd3c4a2f10a204d06ada5a548ce0187847592465341179ad72ea6"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_87a19976257f.json",
+      "sha256": "9919ef6602b39750e916e888e8789f47cfe19fae710f07a6bce1ebdd0e7382c0"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_8a40d282e522.json",
+      "sha256": "c15fb2ac3ffb1c2aaf32e9bbd533db3fb4bce77698ea25d4047e89acba5ba9f7"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_8ac6b5ed0520.json",
+      "sha256": "0dfa2d7b5c8a429fdc635e06eb4f50cbecc102b4fbf5ed6fcfea8b03f10cce47"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_8b2044ee73a9.json",
+      "sha256": "49385fba83cf9b329329d399653444a2e49961bef04073cb8eb332cfbe78e9ce"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_8b56eb8c061d.json",
+      "sha256": "c6149c3b6588807a637b8a5f51f86f8727a446af95d0c4674c0d54dc46f5e7ed"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_8bb2b2586ac2.json",
+      "sha256": "c57033df2350869e49e2d601f2c900a685947797b802f5fe5b430e792d3d4c1d"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_8e65e72aeeb8.json",
+      "sha256": "83cdc49bacf9abec7cb86e8a6e62971039dc05dc81966d983513438577da7e74"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_912f25bbfa00.json",
+      "sha256": "895f8a38419e22f2abb42b9fe1c75aacd4c18a2a7799b9339cd4e5f40d71d052"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_92c5d4cc870a.json",
+      "sha256": "2edd6423353aad557d28db3fad24c8fab941d3954cde0e5dd6ad7dc959ee7551"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_941bc88f594e.json",
+      "sha256": "25126c3e653fe78e3eb00c4b0ec6f0cbebfd3745c903472f1bd2e148805b0d7b"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_957db7b0f3e2.json",
+      "sha256": "496af69bbca69977a1db9a5ec62b6dab48104c3a0eb26e78947a95561c7d2c28"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_96620d25803a.json",
+      "sha256": "41726c0313dc60e4f572f1bc91d62eb0ef76a22a728595ffc794eb636c631194"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_98cd45e4bcc1.json",
+      "sha256": "0c8e0b44895522d3c610383d6e5d900e4ecc020fcf25db4a712df9f70b084a11"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_98f542705920.json",
+      "sha256": "4e66297723c2698f9b8459118e24f1aec43d06e84c2e8b4a94133c714b4e6d59"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_98fcda34e6c1.json",
+      "sha256": "475f16ebaa0bb76f3d152c4a5b4677066b95a5460419bbee5c7c4cf6a17afb3a"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_99e19cc1e049.json",
+      "sha256": "bc290a36edd4cf89576f4cb3b69d27074b689a23ae6dfae36b6a93b397a0779b"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_9c7ae026a70d.json",
+      "sha256": "04da406eede1621fd445be08d87d87c683cbe5ed9a13e2796fe4adee4932a87d"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_9ce0d10d9d9c.json",
+      "sha256": "7a1dec2ab90f0fb82d3b640d6aa298e4b3210a90e0ee1f747836bb66cb10bafc"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_9da7fb58b9cb.json",
+      "sha256": "b9e5ee7263e70e7ede9d10c5fbd87d5f9b757c1b9b048199d94687195c2ecf16"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_a08c7d53edc3.json",
+      "sha256": "af6e48447be04e27603be6aec5f1d127876d196bca2bffc0f99544a50498a75f"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_a13468fdecd8.json",
+      "sha256": "3b4729a36b6e9cd7e9ded80052dc65afce7b4b10fe3213c1dbebec914b7b6529"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_a2ed3fe7ec74.json",
+      "sha256": "ab1ee89a4aa05e25c8f6414acf3f502f3166f475326753b91e2665fb113fe6ec"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_a37c24670118.json",
+      "sha256": "3898faf3fa64136d6f9e3c4b343c8797a783c44d8c4fe175bb6281bf361c5846"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_a4520ac8041d.json",
+      "sha256": "e267062ab0247801b4672793f411aad8295988d0826cbfac46c9ca0a05961444"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_a902eaa76c13.json",
+      "sha256": "6c83c889219a8e14736f459ab21f85c5a748474f9c260defa98643d27b24a772"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_a9682c23fdb4.json",
+      "sha256": "a44efd0c5481260f2f12b051bfb5d0c179017a07d07aabf0fa8935df926377c9"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_a9727997fcf8.json",
+      "sha256": "a07816cfea1514c9148dac22cb7150fb32948c211ada81032e312078c8cf8b66"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_aa20732078d1.json",
+      "sha256": "da45262c43b53811711739f5bdd8af2dad5c3eaa1ffd92a894fb330ecadc4538"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_aac080671408.json",
+      "sha256": "01aca657bf1a3f6160becc3925731164517f22b58ee069ad52334fb9b751dd0f"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_ac0e5a955c04.json",
+      "sha256": "2c2d654328f6ecf4bfcebe3d4902dbb7efbad5eb9a74ff281dca72daf387884f"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_acbba7654ce1.json",
+      "sha256": "dfccf9c5b8c3ef354e47bb724613d0d4239d73d036441fa5fabc763f09af5467"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_af4511f451f5.json",
+      "sha256": "27131ef3b205320a010bae9624b4c9ab9001e705fcc74ec3867dbe3840eaef2f"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_b2e3091de22a.json",
+      "sha256": "266b2fd9579ae3c55b1edebd9a8ca54f4689465dcb29a18fc74eb1226071d536"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_b3e001e4f212.json",
+      "sha256": "b16014228356fd4a8d76e89dd7fd4e8892decae613c048267837870cee202fa8"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_b40bf4bf55b6.json",
+      "sha256": "c1498a4591990d03f63815088e7eab1fe7060043d75031a6e8e377bedcd3dc99"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_b43504a8f9f8.json",
+      "sha256": "c7a710a03a94a2a4116c04aeadbb5d7c1cf80843e4d3b42788531373d5ab3184"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_b452a6790129.json",
+      "sha256": "ffc2cc3758e87dcd041334f4cf467548d16a2e826980a451faea8150002b49fc"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_b6b00db6c1bd.json",
+      "sha256": "e351a9e713ae4bef0ffba42b7999bf14da195b0daa97774b62974f45feef57fa"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_ba4da3552a71.json",
+      "sha256": "66e7ec3fd8d97b751beba86e9ca275ea25ce1e8e753d84ab5af3c970c28acf32"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_ba8242451112.json",
+      "sha256": "71ea41e766c5f185af2da3521622843efa713aa03ca80303ff9313ee30c4bfb4"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_ba8d1e0e1402.json",
+      "sha256": "395c788c33516e1ba7d3d2f7ca34c4e353985358388689c3ed92789e02cdf1d6"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_bbdf93c04a62.json",
+      "sha256": "9b069be52ec27f1551aedb6214eddc094ebaf9597ce11bb66def781165910f5a"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_bc8efb8673d3.json",
+      "sha256": "c5dcdc9f691cd02d01a4dc7d9b3dba20cab5e60954e6828090a30369afae22c0"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_bddeda12ae09.json",
+      "sha256": "f1cdc2b5035f13e9326c56515244189004b7deeda0a4ef9207025ca6939d0a56"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_c06736601048.json",
+      "sha256": "1ebb30a2adb25b6412fff667c322d79759a3ca573789bcb7870aad617b178720"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_c10dcb787cf3.json",
+      "sha256": "e4ef91e3a4f498f56ca59b1944e41dd1837f4d93f23425583bd72a3bd604f3d2"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_c3737255a3ee.json",
+      "sha256": "0bb1e5d75e2e9097831a8f5f52a39db15ad46054b0082191003b3e58fbff1be6"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_c3b72ec2f4b2.json",
+      "sha256": "4d2a3f636688210029decc9d441ffe7c5f8e4887ddaaf15d7c569714f7f47697"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_c5de4bdf47f6.json",
+      "sha256": "3bcff25034b172b88387780bee0bd474aeab76311e861b828f8c331692a4a2ad"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_c7daa73b6763.json",
+      "sha256": "2c5f0e8db2a51b797733588190e418de1d3967daf4f9acb1d97ac76ce85f669e"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_c9e3b74c4938.json",
+      "sha256": "b65e52a595bf2cde80c3a588c0dea6ade01bab2dd845adba55d2a3c9558e2eac"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_cb8cfa8a22d0.json",
+      "sha256": "72dadffb8525bb0478eda395210af0737c0be7963a47873a028e8f52237081dc"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_d037ffc3bd52.json",
+      "sha256": "6e6d97e684d875e3de288358acafb40dec16e2c1470c6560bc06d866ac4030c7"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_d15e2ac930a0.json",
+      "sha256": "c32f05c11cb80a4b6b00966dd130d593754b01c97c3928578f6f54dfdc2985b3"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_d17a8e2a1ed2.json",
+      "sha256": "1e8e50a346be8e6214841444f377ea2b6d40bce367178c5a560f857763079d6b"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_d1dc9a5f4ed6.json",
+      "sha256": "d33f252b3375b6fa1bd8535e91a2086005c3f4b8fe717b8cbdc92b15d395add3"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_d64ce9906969.json",
+      "sha256": "f61daf4d469d443d884855163bda31f7f45e12579e1af6fac91a1e79b468cb3d"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_d699ffa4d1a5.json",
+      "sha256": "474c24a486fb3aa7b985b8600f951ddfc3a35ff4e28c2f5508b639401451de99"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_d742ad9b3d28.json",
+      "sha256": "9c6f0c4129b1b3655cbcc28ec5f69f3c07946584ab8f58f3174fb381e403c8fa"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_d972875bac09.json",
+      "sha256": "ca4c1c7414189549d0b6aec78d417b1efeb36e822e44bbe5eac14f45a78bb24d"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_da7d6d280dc6.json",
+      "sha256": "56be280fa03a4f258081e5f4ddfb6773f38ce11ae599af44af73b9afaa5130d8"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_db39a36bc4dd.json",
+      "sha256": "d6c1d329d9dd2e850b70983d501a08a39eab18ac7bc2fb821f610a79acf10fdf"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_dcb4f9ee8900.json",
+      "sha256": "51aa08940384085760198e4ded89e8170bc6c3cadae1a37760d8ab8cc0225463"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_e0028fda9c27.json",
+      "sha256": "9b32565c0bdfd4e8f98b0ab0f6d70c431008c2d209aad512c38e94c53ff91c15"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_e04d0ee3778b.json",
+      "sha256": "e09b243dc2ebc3dc34e4b63c5b1d1d83d8912c1b22288e3d7ad81068d9cf2e4d"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_e0abff61c665.json",
+      "sha256": "be8bf6a45562b99a0577c6f4e48bf997fe6eb24973280c4dd8e30ba63968400a"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_e0d2ad0f25e4.json",
+      "sha256": "c99838f04613b5e8be84ddf3a64197eb6d36eebf2c811154e78a54fc33cd0277"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_e1a564b62555.json",
+      "sha256": "c847f272eb2d288a94f55c00a5afd7e3580dff784e72a1d53da3e39315d4f696"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_e261f94a5e91.json",
+      "sha256": "c297b459297c67caf2cb58f2f3f5e5c0d5c3b48f4cc29f1521ac540b307bc317"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_e27584bae5d1.json",
+      "sha256": "2f6c3397ffb746b596ae3b90f3d7b976f1c6ff20cb62b47857f307d5227ca743"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_e36f72199932.json",
+      "sha256": "2239373c71339af6b58cf9154451c55b4c1ba5352f7b0fa51fe82453579468b6"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_e3acc4de290e.json",
+      "sha256": "bd873d9d8d9128547f18f4f8708ba2f8b9662b8cbb92d26470065fdaa97f4a65"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_e3ddf5c3ee01.json",
+      "sha256": "41114fb85fa3368631fb23e4e9747127497cf7f9bc7e92dcd3ba01a9bc1b8b78"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_e590c80edf83.json",
+      "sha256": "a8104c298d460a0bd178d921b25a214b28812f1ccc44deccd488c2740dde9b3f"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_e7e5d2eb2af0.json",
+      "sha256": "aefbdad6e6fef7d69e5076b7bef52917c4af8eafa2b5679a97be620a8eaae107"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_e8e486951445.json",
+      "sha256": "bd1de11d9fde078a757fc8fe27b0681eeb88ce8ed3b9267cea3abd17abd06865"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_ebf5865f503a.json",
+      "sha256": "9548f6a9314c0cff2ef91fd54239c6c3c2a831ecb7f792504dc769ac4bb2a492"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_f642760c417c.json",
+      "sha256": "f7955ccc49a4ebd88ef8205309529164ae8d2f7d0935a70195e50238a13dd145"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_f727964055ca.json",
+      "sha256": "f5da795bbe4d454bc31ce08071bc7a239c23ce2c6fa342d898d35b75398effba"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_f7e5e0d1da4e.json",
+      "sha256": "943856e6dcf641ea9d1b513ef578841e782819137586568f20ea1b4c6785844a"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_f93cd57274c8.json",
+      "sha256": "538446b532a13312ba4051c0624528e99e0ff965ab86ed13b1f0dcecfc6000f9"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g1/g1_fa47d71261ef.json",
+      "sha256": "92a6524d92ba76bb3ca2824f4eeee7f16780a1eae0dfe25b868e2141119d4578"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g2/r17_g2_T2_fo15_m1.4_l5_s180_t180_lv5_th24_dl3_2024.json",
+      "sha256": "18ee8b01fa5af2d3887bfb3d3bd0dd40e2097688d1f75e70ffcfcd607eee5c63"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g2/r17_g2_T2_fo20_m1.55_l5_s120_t120_lv5_th12_dl2_2024.json",
+      "sha256": "3ba6c889774d7ba80040e53820f3935a0e2a6e7f0862d620e374750bf7f5f52c"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round17/configs/g2/r17_g2_T3_8_fo10_m1.25_l4_s250_t250_lv3_th48_dl5_2024.json",
+      "sha256": "f200bc6b45e6c107af456d52f07f32e60d5a3808294975545937de74447204b5"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round18/r1/gates/r1_fingerprint_registry.json",
+      "sha256": "98e9920c37d4411ac785b15573ceb64ab6ca12a80038be0ba0f27307593a2c5b"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round18/r1/historical-fingerprint-index.json",
+      "sha256": "593684ce6f553ac674592e95304b93b02ec7364ecb0791b920364582ab1c87be"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round18/r11/gates/r11_handoff.json",
+      "sha256": "02d84faec90d1d0b74f420b211a7ae65833f6e04f138dc76f851c69a1d4d9ccd"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round18/r2/gates/r2_sync_cycle_domain.json",
+      "sha256": "965c02415843aa20f1636f450e5d593c20036f186e217a988f78b262afe558f3"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round18/r4/fold-fit-freeze.json",
+      "sha256": "0dfdd74123c59d7dcce65b6bcf63ba5fe6dc717652029a337f61252a8afe3c14"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round18/r4/gates/r4_fold_fit_freeze.json",
+      "sha256": "49e019ceec26090c0b9a35b3ce64072ecb9adce7ff9c84f142df9e535b8a77dd"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round18/r8/gates/r8_g3_validation.json",
+      "sha256": "102d9f362a9ebc8d9ce9909e8804d0ac10bf5d09b49092159f659df18a1850fd"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round19/audit/round19-corrected-failure-ledger.jsonl",
+      "sha256": "b29605bc8c269d5d4dcf093a322dd950e78ee322560f03d126102b9be2b9f6c6"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round19/audit/round19-independent-audit.json",
+      "sha256": "d008b05cf796f1bb6b5d501707da8e5ce12835b13990742d8c0e5b6c39d17c08"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round19/historical-fingerprint-index.json",
+      "sha256": "77cb3157c8171307bfdc6ce989ccba5e3fb19fed4411d4f5c85038d0e47d1723"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round19/r1/gates/r1_recursive_index.json",
+      "sha256": "70fbb9091b348697e868785bb0c185f97cf1bf8bf9ccca575f4170db4d5ebb1b"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round19/r4/families-fit.json",
+      "sha256": "46d18a91f81dc8718c21cc04885ae71bbd6c7e046846fa2154926f339941e05a"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round19/r4/gates/five_families.json",
+      "sha256": "86e4acff2af5c9d936ac7e7001ac338bc48e592384e55ca16c29092ef54027ce"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round19/round19-corrected-authority.json",
+      "sha256": "4a145dcf234eafcc988be0a2c8b75fe99c9adc0e0d9f8717a5e21deb05b856b3"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round19/round19-execution-state.json",
+      "sha256": "cca1602ca4164a16f57d51ab6d922d25cfa89cd4484191b2bd38d9a312abdb13"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round20/p0/gates/p0_authority_and_state.json",
+      "sha256": "0065b314a812556958b53abf17eb03df32900920e58d2f38dbf543e7c19fcaf2"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round20/p4/families-fit.json",
+      "sha256": "5bafb8d825fcf61e30b62dea64081d8a46929b2a7cd18fa6caeb34b7a9c0f4a1"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round20/p4/gates/six_families.json",
+      "sha256": "d90bcbeb8aed384d29644a85ea51208a77aaa7f13629aebde3ea39bff9c2dd43"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round20/p6/gates/g0_g1.json",
+      "sha256": "7a85c04232b8160ec4ebc7ed99b52fbd87beb8897224b9e5efd1f8c2e1254044"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round21/audit/round21-corrected-failure-ledger.jsonl",
+      "sha256": "65106d99016a0c4bac47d2b871b9f854316e72fd33b2b10cf27f44dfa509b241"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round21/g0/gates/g0_binding.json",
+      "sha256": "63e6a0d16654a3112c707848fdde68fc66dfc766087b16521aece43d4b13b500"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round21/g0/gates/quota_manifest.json",
+      "sha256": "42471c4ba12a1055f194a96f6b3a1f4aed4f1850982bc57fd32c4f224fbd49b8"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round21/g1/gates/g1_edge_full.json",
+      "sha256": "93989fd1beced6e3c1b68250ecb7e37c88c7c2b1bf2d62cd89c4fabb41151f0e"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round21/g1/gates/g1_tier.json",
+      "sha256": "7266b99212f177e9dc47c18b560cd6f3ac7d4fd38b23627f139d76e7ce5feb65"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round21/r1/data-contract.json",
+      "sha256": "b6aba4546b60ac500676c1273bc5de51692909bfef09e5029dd233ae369a7bc7"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round21/r1/family-classification.json",
+      "sha256": "155f33f449c2a8ea85a223a7a0b94eaa9fc3507127b660e7bec78b0ac90534bb"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round21/r1/historical-fingerprint-index.json",
+      "sha256": "899a554d8187dba28f3b2967d746e0d7e599a198ab0ac5838a2a9df272834b69"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round21/r4/families-fit.json",
+      "sha256": "1f0261695068f842d7e95782c42b0e5dfb2befe1d3319c07d3162ad7a0bee12b"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round21/r4/gates/four_families.json",
+      "sha256": "1d1eadf810bbf81f6bdede7bd7d5945c47f4cd9908b481919d5c54cb23e6a39f"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round21/r8/selected-configs.json",
+      "sha256": "7f4547350ee6d2d66547d8441a1ef912d4c43517e8f7c79780e376fb7bc9b430"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round22/audit/round22-corrected-failure-ledger.jsonl",
+      "sha256": "69df5ec891f4a7cd412c531110174fec3fac66f14618cf1202b494eeeae1978d"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round22/audit/round22-independent-audit.json",
+      "sha256": "17626e9a8d94741f53b0461778f7a179489a55ce2fb6cebc48927ac363397576"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round22/g0/gates/g0_binding.json",
+      "sha256": "1222daa9f3da87fce2e2a2625cc4fe9c2dd5050f376cfee207ffdc0861bbcbea"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round22/r4/gates/selectors.json",
+      "sha256": "a4b8757b47546f5433d1206d186d25e5c807921147633587341efa2e8a444d44"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round23/audit/round23-corrected-failure-ledger.jsonl",
+      "sha256": "373a83760cba7592dff840fede2f04e67bd7fbe4dab767355fe668e957603b50"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round24/audit/round24-independent-audit.json",
+      "sha256": "1edab1a88a5b40217b4bee52d4e5a2eb2e08be0e62a661b4a73a464e4ac1e5e5"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round24/audit/round25-external-source-update.json",
+      "sha256": "5aede7d7ea938df27850ef6230ce66ea69d00a8c2c96bb5a51b59363e410e069"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round24/exploration-registry.jsonl",
+      "sha256": "8acc6fcc7905699ebfc68e9729d1d623e3e716f6713fcd883eca0531fdce036f"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round24/failure-ledger.jsonl",
+      "sha256": "3b14520f0b7ed72c677de59fd12a435fd2ceb183f3d394e1af08cdaf457e8850"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round24/round24-authority.json",
+      "sha256": "a1069abb23a6d1c7da0c74860f621985897d1d0c8d30c4b9976bd7db60bd4b56"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round24/round24-corrected-authority.json",
+      "sha256": "c612050468f7e99331f956a7b5ffe0350d3481ddb31c89b9594aa013c6b83e1f"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round24/round24-mechanism-fingerprints.jsonl",
+      "sha256": "e1d3c8417f62f295078c4c712ffbff318bcac221e99f8fc3a8cba08b423337ec"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round24/round24-policy-manifest.json",
+      "sha256": "406c5f2d63c702e88ec86783d94141e23fbd13409d5fdf325e2da6b48a532ca0"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25/exploration-registry.jsonl",
+      "sha256": "ddeee4c6705f897f043db7afbeb960e5cc62e747ee52aedd605e9b2c3cd1a94e"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25/failure-ledger.jsonl",
+      "sha256": "38aa5dda381611ab098249cb513d90ec0a8f5f59682fbe4940ee2842b9b80875"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25/gates/r1.json",
+      "sha256": "8c3ac96e9b60d2e22fed863f31172b7cde800357fc9db6736599963b8cafafcd"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25/gates/r8.json",
+      "sha256": "12936f2f4b9c26adc1cf826690642a664f085638ed538e4a90c82bc6d13ddeb8"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25/round25-authority.json",
+      "sha256": "0423658a4a9ec5f0eed65e18a42d2272870269434ba17de5bca8b0660684e7fb"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25/round25-execution-state.json",
+      "sha256": "1f497921873f82d14e89b356dff0c136f37ede9d4551413f8cdc086c5efdc2a5"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25/round25-mechanism-fingerprints.jsonl",
+      "sha256": "87a844d2d6aeb852159e8344001aabd776ae68a1ece1ee9ed06d9c0a3ace1078"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25/round25-policy-manifest.json",
+      "sha256": "bc95e31f71e7b26de5a096f4e765ce3a083622bf82ad3e9931653162a4b85042"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25/round25-protocol.json",
+      "sha256": "5caeb61a24ebd3dcac3790b4d1a91a92fe105756e4f1a3c779f623fc10c3f3b3"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25/round25-source-map.json",
+      "sha256": "6e1ebdfc5319bcaa537fcc94bbc98b9dca1c88527783fae0fd31267c2d3308a8"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25/traces/r1-canaries/equity.jsonl",
+      "sha256": "f3ae44b3945f341341176e332f635e9ee29c6263109ec6950496d1119506e627"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25/traces/r1-canaries/event.jsonl",
+      "sha256": "9092ef05f8a715b6adc84912d60b3231b61e52aeb0e9ec720e17f8b54d6db7fe"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25/traces/r1-canaries/funding.jsonl",
+      "sha256": "8449bdab47ae6a5b418a093c5a4d8f8320b2b32fccd56912b05a29a9c3faae9f"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25/traces/r1-canaries/margin.jsonl",
+      "sha256": "da48df2fec422ea00db108f6b9ce074b53bb74124a3868eaba7292260b85ca7f"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25/traces/r1-canaries/order.jsonl",
+      "sha256": "30c934dfdeff456867e59068e9b5d7ecb19715d1e866a1861c75d826107d6142"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25/traces/r1-canaries/rejection.jsonl",
+      "sha256": "0281b6fd5b40eaf03f55bc2bb0fe40587dfda5dc60e2318bc46ec0995168904d"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25/traces/r1-canaries/signal.jsonl",
+      "sha256": "75d1aae2e15fe500d359622434e9c2f4ab55f299afb8ba8c6aeb6dec5d02b19d"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25/traces/r1-canaries/trade.jsonl",
+      "sha256": "da5b3ad0e85302331cd23942e1b8dcc682581d4c9d4166e9bb6526625b15f9bb"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/audit/round25r-independent-stationarity-scan.json",
+      "sha256": "471693ea7a805f4687d913e0e8032c88c481ceb240cbe153f8973099c475b828"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/audit/round25r-post-correction-failure-ledger.jsonl",
+      "sha256": "a15f16f6d63db394e2b77ae52a73e7e44a27c6c6ab7db1d02fccceb6f9d474e0"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/audit/round25r-selected-fit-cache-independent-audit.json",
+      "sha256": "46902d9fb8b77cd82df45ab62cf267414689643be3071d32a77852798e052cbc"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/audit/round25r-weekly-29alt-1h-fdr-stationarity-scan.json",
+      "sha256": "c07f3e22e73f72d316474a4ff516002cbbf25654284c978d33ab93df0e464eff"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/audit/round25r-weekly-29alt-5m-fdr-stationarity-scan.json",
+      "sha256": "e3d7733ce7e6e6cc656e96aa1148554a776b43ffaa3ac2fdec1560c8eab0c9d5"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/audit/round25r-weekly-5m-stationarity-scan.json",
+      "sha256": "121f3dc919f617456c87451b33f67bf1a8f4dbc6e8ea365ddf1b07e1183897aa"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/audit/round25r-weekly-stationarity-scan.json",
+      "sha256": "46d803be25d395f65063ff461b24bef40b8f1d6dc5556b9f834d9acbaf629c03"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/exploration-registry.jsonl",
+      "sha256": "bf32083ecf0a757313e2a99437e10cd6538288ac57e07056ec901705e441b361"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/gates/r0-r4.json",
+      "sha256": "5d6ed5c339807d333240bc0b050f3b580749ef3f5a6d77ed416cfb38c478836a"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/round25-corrected-authority.json",
+      "sha256": "fa6d2824058db04430a29b4a275a0649134eea9f99ef79e70877d2c24f0847b0"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/round25-corrected-failure-ledger.jsonl",
+      "sha256": "0d488bf5d7323480dd2daa3aa89f7353691a51dc0a64696cffbebd3a5937df91"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/round25-corrected-mechanism-fingerprints.jsonl",
+      "sha256": "ecf2ecf3c0827ffbacb5f9062fae4d7d8fd51022537f50c85f04e9510d0ba9e5"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/round25-corrected-policy-manifest.json",
+      "sha256": "30cbee7754fcfd6b6b33e4e232d5f46015bed6862ab3da0a6b5bc65a4a918f12"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/round25-corrected-protocol.json",
+      "sha256": "2578255bdd209e9e4e6b71ab95ac07f9f6c918d3b2081678db1c76837e0a37fc"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25-corrected/round25-corrected-source-map.json",
+      "sha256": "67b02c350dab7dab7e699b07d576ccc4cd51c8faed948fa16aa2b907c157e900"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25-recovery/audit/round25-corrected-failure-ledger.jsonl",
+      "sha256": "d01231d007a39be7146467abd36d613229e5117e1c154df3073ddfd4cfad249c"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round25-recovery/audit/round25-independent-audit.json",
+      "sha256": "56473f80651759dd92891d8a87ef51e34c267fa6f6a755a5b4fa0c1a7996bb06"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round26/attempts/model-validator-attempt-ac620811-mkl-oversubscription.json",
+      "sha256": "0347d977e7baa372aa80ef481e3fdaead3c6ed4a2dc3c56634fce100ec13c0e8"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round26/audit/round26-corrected-authority.json",
+      "sha256": "3477baa4d45fb69ecdf1c89c7c9d5e4c70d3c4a9fde0a11671162d97b6ff6e05"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round26/audit/round26-corrected-failure-ledger.jsonl",
+      "sha256": "498468fe3c48a368c7429c7cace19ac1e9c6b59585c5a5e436b75bf58ecda2b7"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round26/audit/round26-independent-gate-decomposition.json",
+      "sha256": "4634fdfef76250e4dc325a4b93bd6dd40a3bb03389bdd730fbfaeceb608392df"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round26/audit/round27-external-source-update.json",
+      "sha256": "d450748adb35727f94a7e738dac8e25c90a6ac1da80fc502cfa4a272202435c8"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round26/exploration-registry.jsonl",
+      "sha256": "26c9da1fd6cb80d5bfa5bbfcfc353d98f9365a284eef640e4ef2281144ae9b4e"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round26/gates/d0.json",
+      "sha256": "f9d94c9653fb5e72d03fd9a2006ef821c0a9fcbd59114224a3731b38044d8c61"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round26/gates/g0.json",
+      "sha256": "1e0c11286f1f21a04909b480e0d2573996a0dd0c7b48c3891eb51fca030993c4"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round26/gates/g1-activation.json",
+      "sha256": "c4e11b10fd01730c10a501730b6eedb2a167f1e597304493556272b36353fb05"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round26/gates/g2-replay.json",
+      "sha256": "27049c6161143762186ef445383fde0cef3e8ebd906d18bf4dfdeb84bb9d0bee"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round26/round26-authority.json",
+      "sha256": "ac67fafef74c600e98c9059fe0e44ac36d3440c83aef8b746edf966023dd84f7"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round26/round26-closed-fingerprints.json",
+      "sha256": "4160a7191ae3342669c5ed2a945349e57b189fdd3cc026312576f71b7ede1d76"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round26/round26-protocol.json",
+      "sha256": "6ab53112cf6ca7cb96546a7d8e3aebe4b78b6cfb86b07b58bfa0ef8115253989"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": true,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round27/round27-protocol.json",
+      "sha256": "1ee560385bf8c8b8ae26c4d363275287561b51d3b0c174ecde3689f77d0fb9d8"
+    },
+    {
+      "mentions_pbd_three_component": false,
+      "mentions_round27_exact": false,
+      "path": "docs/superpowers/artifacts/glm-martingale-core-round27/round27-source-manifest.json",
+      "sha256": "bc6420c91c831cd59ae8b27c36ae31bcf5e638db25976e2bfc29ba6fbe165b69"
+    }
+  ],
+  "entry_count": 307,
+  "exact_pbd_fingerprint_preexisting": false,
+  "recursive_scope": "docs/superpowers/artifacts/glm-martingale-core-round1..26",
+  "schema_version": 1
+}

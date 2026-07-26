@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "activation_configs": [
+    "C0-1h-21d-RAW", "C0-1h-21d-FDR", "C0-5m-21d-RAW", "C0-5m-21d-FDR",
+    "C1-1h-14d-E0", "C1-1h-14d-E1", "C1-1h-21d-E0", "C1-1h-21d-E1",
+    "P1-5m-7d"
+  ],
+  "promotion_priority": [
+    "C0-5m-21d-RAW", "C0-1h-21d-RAW", "C1-1h-21d-E0", "C1-1h-14d-E0",
+    "C1-1h-21d-E1", "C1-1h-14d-E1", "P1-5m-7d", "C0-5m-21d-FDR", "C0-1h-21d-FDR"
+  ],
+  "c_entry_alpha": [0.10, 0.20],
+  "so_step_sigma": [0.50, 0.75],
+  "p1_entry_z": 2.0,
+  "principal": 2000,
+  "fo_group_gross_fraction": 0.05,
+  "relative_layers": [1.0, 1.25, 1.55, 1.9],
+  "max_active_groups": 3,
+  "baseline_leverage_cap": 2.0,
+  "max_promoted_fit_configs": 3,
+  "outer_return_used_for_selection": false
+}

@@ -1,0 +1,13 @@
+{
+  "closed_exact": [
+    "R26_EXACT_EG_KPSS_HALF_LIFE_RAW_CUSUM_BETA_DRIFT_TAIL20_CONJUNCTIVE_ADMISSION"
+  ],
+  "pbd_dedup_passed": true,
+  "reopened_changed_mechanism": [
+    "R27-C0-SOURCE-EG-COPULA-MARTIN",
+    "R27-C1-STAGED-ROBUST-COPULA-MARTIN",
+    "R27-P1-PBD-FINITE-PERSISTENCE-MARTIN"
+  ],
+  "round26_broad_family_closure_revoked": true,
+  "schema_version": 1
+}

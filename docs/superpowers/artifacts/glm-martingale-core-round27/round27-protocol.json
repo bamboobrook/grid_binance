@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "fingerprints": [
+    "R27-C0-SOURCE-EG-COPULA-MARTIN",
+    "R27-C1-STAGED-ROBUST-COPULA-MARTIN",
+    "R27-P1-PBD-FINITE-PERSISTENCE-MARTIN"
+  ],
+  "reference": "BTCUSDT_NON_TRADABLE",
+  "universe": "FORMATION_ONLY_WEEKLY_TOP20_FROM_29_ALTS",
+  "account": "ONE_CONTINUOUS_SHARED_CASH_MARGIN_EQUITY_RESERVE_ACCOUNT",
+  "signal_execution": "COMPLETED_SIGNAL_THEN_NEXT_1M_EVENT",
+  "principal_rule": "STRICTLY_LESS_THAN_5000U",
+  "outer_return_used_for_selection": false
+}

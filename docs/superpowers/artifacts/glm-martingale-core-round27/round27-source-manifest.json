@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "plan": "docs/superpowers/plans/2026-07-26-glm-martingale-core-round27-staged-admission-persistence-recovery-plan.md",
+  "plan_commit": "12d6fa3b",
+  "round26_snapshot_source_commit": "7a8e792696d955556a2725daf3d099c041c6397c",
+  "source_commit_binding": "raw artifact root basename and machine authority",
+  "required_source_files": [
+    "scripts/r27_gate_decomposition.py",
+    "scripts/r27_fit_snapshots.py",
+    "scripts/r27_validate_models.py",
+    "crates/r24-research/src/r27.rs",
+    "crates/r24-research/src/bin/r27_execute.rs",
+    "crates/r24-research/src/bin/r27_validate.rs"
+  ]
+}
