@@ -2,8 +2,10 @@ use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::Instant;
 
 use anyhow::{bail, Context, Result};
+use chrono::Utc;
 use r24_research::r26::{sha256_bytes, FINGERPRINT};
 
 const REPO_ARTIFACT: &str = "docs/superpowers/artifacts/glm-martingale-core-round26";
@@ -15,6 +17,9 @@ struct Args {
 }
 
 fn main() -> Result<()> {
+    let started = Utc::now();
+    let timer = Instant::now();
+    let argv = std::env::args().collect::<Vec<_>>();
     let args = parse_args()?;
     let repo = std::env::current_dir()?;
     let raw = absolute(&repo, &args.artifact_root);
@@ -38,6 +43,20 @@ fn main() -> Result<()> {
         both_pass,
         &model,
         &account,
+    )?;
+    let validator_runtime = serde_json::json!({
+        "argv":argv,"pid":std::process::id(),"start_utc":started.to_rfc3339(),
+        "end_utc":Utc::now().to_rfc3339(),"wall_seconds":timer.elapsed().as_secs_f64(),
+        "peak_rss_kib":peak_rss_kib(),"model_peak_rss_kib":model["runtime"]["peak_rss_kib"],
+        "exit_code":if both_pass {0} else {1},
+        "source_commit":raw.file_name().and_then(|value| value.to_str()),
+        "validator_commit":git(&repo, &["rev-parse", "HEAD"])?,
+        "input_hashes":model["runtime"]["input_hashes"]
+    });
+    write_json(
+        raw.join("runtime")
+            .join(format!("validator-{}.json", args.phase)),
+        &validator_runtime,
     )?;
     if !both_pass {
         bail!("dual validator failed")
@@ -433,4 +452,17 @@ fn git(repo: &Path, arguments: &[&str]) -> Result<String> {
         bail!("git command failed")
     }
     Ok(String::from_utf8(output.stdout)?.trim().into())
+}
+
+fn peak_rss_kib() -> Option<u64> {
+    fs::read_to_string("/proc/self/status")
+        .ok()?
+        .lines()
+        .find_map(|line| {
+            line.strip_prefix("VmHWM:")?
+                .split_whitespace()
+                .next()?
+                .parse()
+                .ok()
+        })
 }

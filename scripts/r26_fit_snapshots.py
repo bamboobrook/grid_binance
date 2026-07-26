@@ -9,6 +9,7 @@ import json
 import math
 import os
 import platform
+import resource
 import sqlite3
 import sys
 import time
@@ -134,6 +135,13 @@ def atomic_json(path: Path, value: Any) -> str:
     temporary.write_bytes(payload)
     temporary.replace(path)
     return hashlib.sha256(payload).hexdigest()
+
+
+def peak_rss_kib() -> int:
+    return int(max(
+        resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
+        resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss,
+    ))
 
 
 def anchors() -> list[int]:
@@ -866,6 +874,7 @@ def load_validator_leg_cache(path: Path, task: tuple[str, str, int, int]) -> dic
 
 def run_validation(args: argparse.Namespace) -> None:
     global SIGNALS, LIQUIDITY, FUNDING, FILTERS, OUTPUT_ROOT
+    started = time.time()
     OUTPUT_ROOT = Path(args.artifact_root)
     manifest_path = OUTPUT_ROOT / "fit-snapshot-manifests" / "g1.json"
     if not manifest_path.exists():
@@ -883,8 +892,10 @@ def run_validation(args: argparse.Namespace) -> None:
     formations = sorted({int(snapshot["formation_days"]) for _, snapshot in snapshots})
     roll_anchors = sorted({int(snapshot["roll_anchor_ms"]) for _, snapshot in snapshots})
     FILTERS, _ = read_exchange_info(EXCHANGE_INFO)
-    FUNDING, _ = load_funding(Path(args.funding_data))
-    SIGNALS, LIQUIDITY, _ = load_market(Path(args.market_data), frequencies, roll_anchors, formations)
+    FUNDING, funding_manifest = load_funding(Path(args.funding_data))
+    SIGNALS, LIQUIDITY, market_manifest = load_market(
+        Path(args.market_data), frequencies, roll_anchors, formations
+    )
     leg_tasks = sorted({
         (snapshot["frequency"], leg["symbol"], int(snapshot["roll_anchor_ms"]), int(snapshot["formation_days"]))
         for _, snapshot in snapshots for leg in snapshot["legs"]
@@ -992,12 +1003,32 @@ def run_validation(args: argparse.Namespace) -> None:
                     max_error = max(max_error, error)
                     if error > 1e-12:
                         violations.append(f"copula:{frequency}:{formation}:{anchor}:{pair['pair_id']}:{error}")
+    finished = time.time()
+    policy_path = REPO_ARTIFACT / "round26-policy-manifest.json"
+    runtime = {
+        "argv": sys.argv,
+        "pid": os.getpid(),
+        "start_utc": iso(int(started * 1000)),
+        "end_utc": iso(int(finished * 1000)),
+        "wall_seconds": finished - started,
+        "peak_rss_kib": peak_rss_kib(),
+        "exit_code": 0 if not violations else 1,
+        "source_commit": OUTPUT_ROOT.name,
+        "input_hashes": {
+            "market_data": market_manifest["sha256"],
+            "funding_data": funding_manifest["sha256"],
+            "exchange_info": sha256_file(EXCHANGE_INFO),
+            "policy": sha256_file(policy_path) if policy_path.exists() else None,
+            "snapshot_manifest": sha256_file(manifest_path),
+        },
+    }
     report = {
         "schema_version": 1, "validator": "independent_python_statsmodels_raw_db",
         "passed": not violations, "snapshot_count": len(snapshots),
         "checked_leg_count": checked_legs, "checked_pair_count": checked_pairs,
         "max_numeric_error": max_error, "violations": violations,
         "production_fitter_called": False, "raw_database_read": True,
+        "runtime": runtime,
     }
     atomic_json(OUTPUT_ROOT / "model-independent-validator.json", report)
     atomic_json(REPO_ARTIFACT / "model-independent-validator.json", report)
@@ -1050,7 +1081,8 @@ def main() -> None:
     manifest = {
         **environment_manifest(args, started),
         "end_utc": iso(int(finished * 1000)), "wall_seconds": finished - started,
-        "exit_code": 0, "phase": args.phase, "snapshot_count": len(rows), "snapshots": rows,
+        "peak_rss_kib": peak_rss_kib(), "exit_code": 0,
+        "phase": args.phase, "snapshot_count": len(rows), "snapshots": rows,
     }
     atomic_json(OUTPUT_ROOT / "fit-snapshot-manifests" / f"{args.phase}.json", manifest)
     atomic_json(OUTPUT_ROOT / "checkpoints" / f"{args.phase}-fit-complete.json", {
