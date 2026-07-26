@@ -1659,19 +1659,7 @@ fn run_g3(repo: &Path, raw: &Path, artifact: &Path, resume: bool) -> Result<()> 
         ] {
             for principal in [500.0, 750.0, 1000.0, 1500.0, 2000.0, 3000.0, 4000.0, 4999.0] {
                 for cold in [0, 30, 60, 90, 120] {
-                    let options = ReplayOptions {
-                        principal,
-                        fo_fraction: fraction,
-                        leverage_cap: cap,
-                        start_offset_days: cold,
-                        fee_multiplier: 1.0,
-                        slippage_multiplier: 1.0,
-                        funding_multiplier: 1.0,
-                        fill_fraction: 1.0,
-                        min_notional_multiplier: 1.0,
-                        maintenance_multiplier: 1.0,
-                        ..ReplayOptions::default()
-                    };
+                    let options = g3_replay_options(principal, fraction, cap, cold);
                     let label = format!("tier-{tier}-p{}-cold{cold}", principal as i64);
                     let result = replay_policy(
                         repo, raw, &market, &funding, &filters, policy, &options, false, &label,
@@ -1713,19 +1701,7 @@ fn run_g3(repo: &Path, raw: &Path, artifact: &Path, resume: bool) -> Result<()> 
                     let principal = principal.as_f64().context("claim principal missing")?;
                     let (_, fraction, cap, _, _, _) =
                         tier_parameters(tier).context("unknown G3 tier")?;
-                    let base = ReplayOptions {
-                        principal,
-                        fo_fraction: fraction,
-                        leverage_cap: cap,
-                        fee_multiplier: 1.0,
-                        slippage_multiplier: 1.0,
-                        funding_multiplier: 1.0,
-                        fill_fraction: 1.0,
-                        min_notional_multiplier: 1.0,
-                        maintenance_multiplier: 1.0,
-                        filter_step_multiplier: 1.0,
-                        ..ReplayOptions::default()
-                    };
+                    let base = g3_replay_options(principal, fraction, cap, 0);
                     for (name, options) in stress_options(base) {
                         let result = replay_policy(
                             repo,
@@ -1773,6 +1749,21 @@ fn run_g3(repo: &Path, raw: &Path, artifact: &Path, resume: bool) -> Result<()> 
     });
     write_json(&checkpoint, &value)?;
     write_json(artifact.join("gates/g3-tiers.json"), &value)
+}
+
+fn g3_replay_options(
+    principal: f64,
+    fo_fraction: f64,
+    leverage_cap: f64,
+    start_offset_days: i64,
+) -> ReplayOptions {
+    ReplayOptions {
+        principal,
+        fo_fraction,
+        leverage_cap,
+        start_offset_days,
+        ..ReplayOptions::baseline()
+    }
 }
 
 fn stress_options(base: ReplayOptions) -> Vec<(String, ReplayOptions)> {
@@ -4329,4 +4320,22 @@ fn peak_rss_kib() -> Option<u64> {
         .nth(1)?
         .parse()
         .ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn g3_options_preserve_executable_baseline_multipliers() {
+        let options = g3_replay_options(500.0, 0.05, 2.0, 30);
+        assert_eq!(options.filter_step_multiplier, 1.0);
+        assert_eq!(options.min_notional_multiplier, 1.0);
+        assert_eq!(options.fill_fraction, 1.0);
+        assert_eq!(options.fee_multiplier, 1.0);
+        assert_eq!(options.slippage_multiplier, 1.0);
+        assert_eq!(options.funding_multiplier, 1.0);
+        assert_eq!(options.maintenance_multiplier, 1.0);
+        assert_eq!(options.start_offset_days, 30);
+    }
 }
