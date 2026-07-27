@@ -1,0 +1,21 @@
+{
+  "argv": [
+    "target/release/r28_validate",
+    "--phase",
+    "all",
+    "--artifact-root",
+    "artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce",
+    "--resume"
+  ],
+  "blas_threads": null,
+  "end_utc": "2026-07-27T01:35:50.710139715+00:00",
+  "exit_code": 0,
+  "peak_rss_kib": 302840,
+  "pid": 2,
+  "resume": true,
+  "source_commit": "d516d40dafbac63d0c9d607224cae8de9721a2ce",
+  "start_utc": "2026-07-27T01:32:07.280793496+00:00",
+  "validator_commit": "d516d40dafbac63d0c9d607224cae8de9721a2ce",
+  "wall_seconds": 223.42934648,
+  "workers": 1
+}

@@ -1,0 +1,1240 @@
+{
+  "blas_threads": {
+    "MKL_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1"
+  },
+  "exchange_info_sha256": "aa6b21bbb04a421ffa72e8755312cdb20de684a9e016400c14fad7ee94f9be7b",
+  "funding_sha256": "356e270dacce36b4703364545beeafe402f1aa55aa11caebc5708f5f3b6767a1",
+  "market": {
+    "bytes": 119277240320,
+    "path": "/home/bumblebee/Project/grid_binance/data/market_data_full.db",
+    "sha256": "4ceed5eb0bcfdea701a6e156d570cfb33c2ea7274413abee5c93116fc28afec4",
+    "sha256_bound_to_bytes": false,
+    "sha256_evidence": "independent sha256sum before immutable replay source commit",
+    "symbols": [
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "BTCUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "AAVEUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "ADAUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "ALGOUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "APTUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "ATOMUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "AVAXUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "BCHUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "BNBUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "COMPUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "CRVUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "DASHUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "DOGEUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "DOTUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "DYDXUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "EGLDUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "ETCUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "ETHUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "FILUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "GALAUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "HBARUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "ICPUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "INJUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "LINKUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "NEARUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "SOLUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "TRXUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "UNIUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "XRPUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "ZECUSDT"
+      }
+    ]
+  },
+  "outer_return_read": false,
+  "peak_rss_kib": 419836,
+  "phase": "mtar-fit",
+  "schema_version": 1,
+  "snapshot_count": 152,
+  "snapshots": [
+    {
+      "name": "mtar-42d-20230701",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20230701.json",
+      "resumed": false,
+      "sha256": "c5b9071da08b60c32c0912f8955e65d89c657d7c70567a319902b5a769b4f8e0"
+    },
+    {
+      "name": "mtar-42d-20230708",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20230708.json",
+      "resumed": false,
+      "sha256": "7fb7f818168aa7b398dd7776868c8499fe21ff1cedbcb2dfe72f34efde1a8b48"
+    },
+    {
+      "name": "mtar-42d-20230715",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20230715.json",
+      "resumed": false,
+      "sha256": "8253bb7d64d655a31237d57d9bf666d386b23fd884e8600966af67cd31f13aa4"
+    },
+    {
+      "name": "mtar-42d-20230722",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20230722.json",
+      "resumed": false,
+      "sha256": "a57ab594acea20f7537711c15d97637d1d9f9e0fbe99f8186466dfd9442d8735"
+    },
+    {
+      "name": "mtar-42d-20230729",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20230729.json",
+      "resumed": false,
+      "sha256": "83adaf1bd6598aeb1f72a23076db79f4e63ebefc980aafd3aa2247e2dc757eb9"
+    },
+    {
+      "name": "mtar-42d-20230805",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20230805.json",
+      "resumed": false,
+      "sha256": "4bea566f7614dd227db3b94188b38b2b3ba0e5cd60eb75afbbc629602b280aee"
+    },
+    {
+      "name": "mtar-42d-20230812",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20230812.json",
+      "resumed": false,
+      "sha256": "608fc598ea942adee783754e300d1ded38f5ef89d300eaa60c4b25581a26a2f3"
+    },
+    {
+      "name": "mtar-42d-20230819",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20230819.json",
+      "resumed": false,
+      "sha256": "0ae59c2e9b6fc0522e8c7208c9aadb31a08acf2a9980b4619e931eb5fb050da3"
+    },
+    {
+      "name": "mtar-42d-20230826",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20230826.json",
+      "resumed": false,
+      "sha256": "dc8a3f94a045b0ce461ce6810da0c76150f0acb7c8228c7092a8cddd9b920418"
+    },
+    {
+      "name": "mtar-42d-20230902",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20230902.json",
+      "resumed": false,
+      "sha256": "6c11b009544253d5006a1346f0d50a8d6e2a7f50d085f81c30f2aa4c8aee17c0"
+    },
+    {
+      "name": "mtar-42d-20230909",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20230909.json",
+      "resumed": false,
+      "sha256": "c9d73c75d8f583d31c98ae4677070d94d47779a7d7387f2c99666e9680bfbf68"
+    },
+    {
+      "name": "mtar-42d-20230916",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20230916.json",
+      "resumed": false,
+      "sha256": "937582e42a158c458d6cc9833d4bc737dccad72c7331769372117d0cb2fa72cf"
+    },
+    {
+      "name": "mtar-42d-20230923",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20230923.json",
+      "resumed": false,
+      "sha256": "77cf46bc4b195f9e0327f725955be61d6c9f5dec38d688524bed9e3d5a972e2e"
+    },
+    {
+      "name": "mtar-42d-20230930",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20230930.json",
+      "resumed": false,
+      "sha256": "cd196e4b800264b73c26814d3656f488d8788d78655c3a006e5f4b4ca77c38ee"
+    },
+    {
+      "name": "mtar-42d-20231007",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20231007.json",
+      "resumed": false,
+      "sha256": "9a249217994fca2e195c3d3307b42cdab0cb8314f996e8e9df119f3da547d9b6"
+    },
+    {
+      "name": "mtar-42d-20231014",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20231014.json",
+      "resumed": false,
+      "sha256": "67d2c76916cd6626541bae10aa9a939baf99f4641d9f6e2206d1db1ae8cf5bae"
+    },
+    {
+      "name": "mtar-42d-20231021",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20231021.json",
+      "resumed": false,
+      "sha256": "26a81157f1dbdfafc911d7727503cc791e71de1e5ffea6e48b116ec1f76be335"
+    },
+    {
+      "name": "mtar-42d-20231028",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20231028.json",
+      "resumed": false,
+      "sha256": "3ac579648485554d6ba6f6d9353455fcc62c9d5c2f25d8a9ba0ec0d5012dd175"
+    },
+    {
+      "name": "mtar-42d-20231104",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20231104.json",
+      "resumed": false,
+      "sha256": "6e4db398cd077cdfd0f88e422a529e99a861b6513cf39e25f329cf9cb9a6e975"
+    },
+    {
+      "name": "mtar-42d-20231111",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20231111.json",
+      "resumed": false,
+      "sha256": "119e1536fa3242fd880043317333e295c38c9c846b628c6a9c84a725cae590f6"
+    },
+    {
+      "name": "mtar-42d-20231118",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20231118.json",
+      "resumed": false,
+      "sha256": "278447dfeaa05fbe3bd7894ae1ac611a98afea2c35a583640e0be5eeac5aa317"
+    },
+    {
+      "name": "mtar-42d-20231125",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20231125.json",
+      "resumed": false,
+      "sha256": "f2c455aa00433181c2d437817164a820d838b018ae8d6727eb1d497185bb32cc"
+    },
+    {
+      "name": "mtar-42d-20231202",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20231202.json",
+      "resumed": false,
+      "sha256": "64a116215b72a761332596bd8a90294caadf12cb3cd0b23a542e7307e1e26ecd"
+    },
+    {
+      "name": "mtar-42d-20231209",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20231209.json",
+      "resumed": false,
+      "sha256": "c90881cdf69929eff4f35b5b63b783b4282246466f04e7d25658564d4b1f6591"
+    },
+    {
+      "name": "mtar-42d-20231216",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20231216.json",
+      "resumed": false,
+      "sha256": "2531318d7ad0b893f469c0acad1b0f0950d01dac68bae3e5fa2c5847902fda01"
+    },
+    {
+      "name": "mtar-42d-20231223",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20231223.json",
+      "resumed": false,
+      "sha256": "a1641b77c1185e1a5444c422677b4fd8f9b199ad69be212d29ea6be1dd9a701b"
+    },
+    {
+      "name": "mtar-42d-20231230",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20231230.json",
+      "resumed": false,
+      "sha256": "7a076682072d8f1daa2e648429ea7a0319f06d18e47c2f41ee40edadd1014b0b"
+    },
+    {
+      "name": "mtar-42d-20240106",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240106.json",
+      "resumed": false,
+      "sha256": "bde069bf2a37c5afcf7291548b39140acfeb7a7bb8e08a0954118de31a255acd"
+    },
+    {
+      "name": "mtar-42d-20240113",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240113.json",
+      "resumed": false,
+      "sha256": "8d5449921dbaa8ef7a615c0021f66ffd2913ab0437bcaa5538681020fe2a2b70"
+    },
+    {
+      "name": "mtar-42d-20240120",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240120.json",
+      "resumed": false,
+      "sha256": "ee24ea6a97022df1ff1bd51fd90272dea950934fa0340dcf5856561df9757897"
+    },
+    {
+      "name": "mtar-42d-20240127",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240127.json",
+      "resumed": false,
+      "sha256": "a68a23669b20357da3376cff0b762f537100b17ccbca3e5e35465cea0d766ce9"
+    },
+    {
+      "name": "mtar-42d-20240203",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240203.json",
+      "resumed": false,
+      "sha256": "50968d669ca3258034bf7850c3a210eaefa4735eabb0cf1370d524617a1e4c7f"
+    },
+    {
+      "name": "mtar-42d-20240210",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240210.json",
+      "resumed": false,
+      "sha256": "0cc83e4bfa8166dbc006b909b8f62ded0b24435bb56c2d387213eddbf06c2265"
+    },
+    {
+      "name": "mtar-42d-20240217",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240217.json",
+      "resumed": false,
+      "sha256": "97351737b9e49110a493361131cfa4fe0aa65cabc27273cff2b03b1aa7d638a4"
+    },
+    {
+      "name": "mtar-42d-20240224",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240224.json",
+      "resumed": false,
+      "sha256": "0bee4a41a637252b980ab26e53467fb0c920d09ad504e98074dbd99189d8ffa3"
+    },
+    {
+      "name": "mtar-42d-20240302",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240302.json",
+      "resumed": false,
+      "sha256": "9ebe6cb28c61e7bbd90c511bf9f125a03191798f45dd2c5747cbb0ff2b6436ee"
+    },
+    {
+      "name": "mtar-42d-20240309",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240309.json",
+      "resumed": false,
+      "sha256": "41ebfe11a6e4ad2f49bb862abe15fd3c5436c5269bf946225abc520287b933dc"
+    },
+    {
+      "name": "mtar-42d-20240316",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240316.json",
+      "resumed": false,
+      "sha256": "8374be30e018a0e001b5392471acad470647ffd1685c4b53f50bc16e2ad6d173"
+    },
+    {
+      "name": "mtar-42d-20240323",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240323.json",
+      "resumed": false,
+      "sha256": "14fc7bc9ccf2bfddf553a1ac455a550c7cb118c5cf37535e8663e2d2ce3feb7e"
+    },
+    {
+      "name": "mtar-42d-20240330",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240330.json",
+      "resumed": false,
+      "sha256": "41bf7e613397c4d0a7478f8a23e70092814fc51f11041b4419d4184e1cbd4303"
+    },
+    {
+      "name": "mtar-42d-20240406",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240406.json",
+      "resumed": false,
+      "sha256": "3628c19c5cb0ab31aa516302580b67c5328e39cfa04521f7603f25b4d7193de6"
+    },
+    {
+      "name": "mtar-42d-20240413",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240413.json",
+      "resumed": false,
+      "sha256": "8d218edbfc803e60d3e471e817c4f42962753887464808977432fc5d8e4595d6"
+    },
+    {
+      "name": "mtar-42d-20240420",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240420.json",
+      "resumed": false,
+      "sha256": "6083109a87ab603328c10f865b393b2f22549e0f73363d170c5f7e8c0b6da5ab"
+    },
+    {
+      "name": "mtar-42d-20240427",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240427.json",
+      "resumed": false,
+      "sha256": "10f309942ad718de2b15b80ca934cf021f0c51ba8fde76535a3f2eebd1d5438e"
+    },
+    {
+      "name": "mtar-42d-20240504",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240504.json",
+      "resumed": false,
+      "sha256": "83e1a2a73c1bf04383320607fb880bb1c2761e95f5ab2a17e97376d22ded0cfd"
+    },
+    {
+      "name": "mtar-42d-20240511",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240511.json",
+      "resumed": false,
+      "sha256": "434e67ec7d03460dc9c9ec9bd181e963acabc981952c61db130836d11b89a7f4"
+    },
+    {
+      "name": "mtar-42d-20240518",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240518.json",
+      "resumed": false,
+      "sha256": "60e547a1d999cc3fe1def600cd1bb3f63b96ceafb42255d3e6d7f4c0bd29422d"
+    },
+    {
+      "name": "mtar-42d-20240525",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240525.json",
+      "resumed": false,
+      "sha256": "8ac73393642e053ffd0a8227b4fd6c5bb1dcef0139fc5884e51e4c1b36e007ba"
+    },
+    {
+      "name": "mtar-42d-20240601",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240601.json",
+      "resumed": false,
+      "sha256": "964b44c1f0dd40803f1fa42312b2419afc4288df923d94ba4f69c541322c1cf9"
+    },
+    {
+      "name": "mtar-42d-20240608",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240608.json",
+      "resumed": false,
+      "sha256": "af62f5873aa26956c50137d4062f6c38f4a8ab776845c27dedbd51512d7dc3ab"
+    },
+    {
+      "name": "mtar-42d-20240615",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240615.json",
+      "resumed": false,
+      "sha256": "e9682d510eea6dca0e11418e8f33c40efab3244368abc879d60a02f2e658ff18"
+    },
+    {
+      "name": "mtar-42d-20240622",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240622.json",
+      "resumed": false,
+      "sha256": "729f99f71a4e23ca6dcf1c50c9403beff5fb807652c06218257d5918839d9b11"
+    },
+    {
+      "name": "mtar-42d-20240629",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240629.json",
+      "resumed": false,
+      "sha256": "e3ef6ad33da76c569ae8cfb4150f5fafb50fa51b17cceb21e1973b7e60e19c29"
+    },
+    {
+      "name": "mtar-42d-20240706",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240706.json",
+      "resumed": false,
+      "sha256": "d1e9051f106f1f4b632505d9bdd2d25b0058f16acb45af45abcd0d6a02a805bf"
+    },
+    {
+      "name": "mtar-42d-20240713",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240713.json",
+      "resumed": false,
+      "sha256": "e1c73719957eb3219a78651d01244fc56a3fefa6f9138e05dd5a8b85311fcf76"
+    },
+    {
+      "name": "mtar-42d-20240720",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240720.json",
+      "resumed": false,
+      "sha256": "9e2b0801fffae2b8b619558f5ae515f122dbb850f4a6d83c40a857e3bfb25d86"
+    },
+    {
+      "name": "mtar-42d-20240727",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240727.json",
+      "resumed": false,
+      "sha256": "a54f48988dbf50280943ff71146553321ecf7a7c3ac0269017e3eaea22b5e149"
+    },
+    {
+      "name": "mtar-42d-20240803",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240803.json",
+      "resumed": false,
+      "sha256": "5e2102dc03c90d718b32692bcea3726d9782db94dd1e03af77ab43f6203f9152"
+    },
+    {
+      "name": "mtar-42d-20240810",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240810.json",
+      "resumed": false,
+      "sha256": "2b1c91c5b7f31dd95726d5f188b9b8ad04711d4fa29f309968568756b6b03832"
+    },
+    {
+      "name": "mtar-42d-20240817",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240817.json",
+      "resumed": false,
+      "sha256": "e2cc7e662706723639147656f871a0af4bbc7b9e6a7bce6432f61ab568899202"
+    },
+    {
+      "name": "mtar-42d-20240824",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240824.json",
+      "resumed": false,
+      "sha256": "088d851927785c051ebb627fa1851367c21aa3e1d98a712d54ce26dc2fdd4cad"
+    },
+    {
+      "name": "mtar-42d-20240831",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240831.json",
+      "resumed": false,
+      "sha256": "db3e613cc4935f739da6b9169aff71e0c0d113937c5fd3d03aa1b3493ce57efa"
+    },
+    {
+      "name": "mtar-42d-20240907",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240907.json",
+      "resumed": false,
+      "sha256": "ab7419be3c6023dd6c9d2a30509a21c36f00e557125389f04bc1e3a57bb3401c"
+    },
+    {
+      "name": "mtar-42d-20240914",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240914.json",
+      "resumed": false,
+      "sha256": "b19296b41d5a2e9e32a4442d466b61ed4abdd06719347c50d8775797d8b494aa"
+    },
+    {
+      "name": "mtar-42d-20240921",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240921.json",
+      "resumed": false,
+      "sha256": "75980b43cf044ae97d33d4119375be047b2b8b592140b80575f19cad2a1b5091"
+    },
+    {
+      "name": "mtar-42d-20240928",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20240928.json",
+      "resumed": false,
+      "sha256": "38eefedd3ffe143c4ce1504b2f97302096878732d92ef2cc73c16b9330642c60"
+    },
+    {
+      "name": "mtar-42d-20241005",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20241005.json",
+      "resumed": false,
+      "sha256": "b751fafa0a1babd121fc4dc308f48eeb7270942374f1fa957b2a5247266c4e45"
+    },
+    {
+      "name": "mtar-42d-20241012",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20241012.json",
+      "resumed": false,
+      "sha256": "d6efe415d97318f8ac81c4fec65dff517a08cd66efed9c31b026fa9f4e2598eb"
+    },
+    {
+      "name": "mtar-42d-20241019",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20241019.json",
+      "resumed": false,
+      "sha256": "e6f3d97c493498686321d0af5b97d942915e26e216f064b7cb98631a32b5c17c"
+    },
+    {
+      "name": "mtar-42d-20241026",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20241026.json",
+      "resumed": false,
+      "sha256": "c35fa4bf0adfa83859b9d3db30418cd73d276b8458d6c970af1a569333effef7"
+    },
+    {
+      "name": "mtar-42d-20241102",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20241102.json",
+      "resumed": false,
+      "sha256": "363ac66208e5872f4abd1b3eec41af466850cad4f8e6ca12b28abb3f7d9565c0"
+    },
+    {
+      "name": "mtar-42d-20241109",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20241109.json",
+      "resumed": false,
+      "sha256": "1bab24241ce374c6512565e7122802f5db6f248a13f1d481f18484b85bb070d4"
+    },
+    {
+      "name": "mtar-42d-20241116",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20241116.json",
+      "resumed": false,
+      "sha256": "8fdba1f86e2757b7c0ebc2a0f95aef410a2f04a6589a8b98efbbdbcfdb96fa80"
+    },
+    {
+      "name": "mtar-42d-20241123",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20241123.json",
+      "resumed": false,
+      "sha256": "27c792b51a6ff29140b55b94871e3a991d90848cc5623414eabc43c68e6806cf"
+    },
+    {
+      "name": "mtar-42d-20241130",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20241130.json",
+      "resumed": false,
+      "sha256": "47c4017da0e29b05ad0c8f62b3e9f0bc24301b8ce90b155cc026aee5d28ef572"
+    },
+    {
+      "name": "mtar-42d-20241207",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20241207.json",
+      "resumed": false,
+      "sha256": "d8a5d391119d5db1cedd5c08513b808b79c2276e6a6cc10fc12d7881210b495f"
+    },
+    {
+      "name": "mtar-42d-20241214",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20241214.json",
+      "resumed": false,
+      "sha256": "9faef0be55083d0ca23efa18e9d3761d22bd5373adc7c46b82140ef54afbe5c4"
+    },
+    {
+      "name": "mtar-42d-20241221",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20241221.json",
+      "resumed": false,
+      "sha256": "dfa79f0e88ea747a137e248f74827253e498b2c8461fd4b9263c2653117a2013"
+    },
+    {
+      "name": "mtar-42d-20241228",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20241228.json",
+      "resumed": false,
+      "sha256": "82b857d249fe1d3e69861698e77235a7dea054223f86acd8b59654efe7dd46b5"
+    },
+    {
+      "name": "mtar-42d-20250104",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250104.json",
+      "resumed": false,
+      "sha256": "183e3450be986a797f4e51bbf80be60aa8936111169ebb8d5f0ffb54da6fe0c7"
+    },
+    {
+      "name": "mtar-42d-20250111",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250111.json",
+      "resumed": false,
+      "sha256": "d215bc49ce544a8125934ec8a62f9d879f87620c23cdf7aa4871be19bdc6a867"
+    },
+    {
+      "name": "mtar-42d-20250118",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250118.json",
+      "resumed": false,
+      "sha256": "585a54adce25459cfa86f074c5acad5cefa26bf93964a9645431d267b25783b6"
+    },
+    {
+      "name": "mtar-42d-20250125",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250125.json",
+      "resumed": false,
+      "sha256": "b909e16796be998047caf845ffd251b890a99ce5a11a6fd8cca629bff9bf1941"
+    },
+    {
+      "name": "mtar-42d-20250201",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250201.json",
+      "resumed": false,
+      "sha256": "1bb97f5ffc656134082e4ab143e8b5cdb4d18671848088bc0bcb985e297cb9ff"
+    },
+    {
+      "name": "mtar-42d-20250208",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250208.json",
+      "resumed": false,
+      "sha256": "0bcf82d95de1d97dd5c2dab6d01c3bd1e17dbe364aca854220cf99c0e340a8fc"
+    },
+    {
+      "name": "mtar-42d-20250215",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250215.json",
+      "resumed": false,
+      "sha256": "272f690ef8c111eafb3b477105e5de6e14cdd80ba4e2b276e80f4d921b64d4e1"
+    },
+    {
+      "name": "mtar-42d-20250222",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250222.json",
+      "resumed": false,
+      "sha256": "8739a9bec385f19fc0c34a467e8c25c9e76369641685c1ce577000e8c448dec5"
+    },
+    {
+      "name": "mtar-42d-20250301",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250301.json",
+      "resumed": false,
+      "sha256": "6bfc62edecb9fb5ffc75011d434ae8529039bb42b6a7cc1c3a47f72e40c626f4"
+    },
+    {
+      "name": "mtar-42d-20250308",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250308.json",
+      "resumed": false,
+      "sha256": "2a3e2186c1713bf0868bbdc2aef553de6efaf1329c247794356a4af76656bebb"
+    },
+    {
+      "name": "mtar-42d-20250315",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250315.json",
+      "resumed": false,
+      "sha256": "1a85f0c86faf8060ec7f638c5a87e5fda7d40332e80f935b01999189fd42d675"
+    },
+    {
+      "name": "mtar-42d-20250322",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250322.json",
+      "resumed": false,
+      "sha256": "2e035b024890e79c8001c0a79e9d77b7831fce534f8fe8e9c77c0a387673a118"
+    },
+    {
+      "name": "mtar-42d-20250329",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250329.json",
+      "resumed": false,
+      "sha256": "8aa4356cdc466253e796230317fd99174035c1cfaac552b23a9ef73de57ec20f"
+    },
+    {
+      "name": "mtar-42d-20250405",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250405.json",
+      "resumed": false,
+      "sha256": "b5a869c81622987e075f4c90bd8bd68012d216161ab0db7847b0b410270769df"
+    },
+    {
+      "name": "mtar-42d-20250412",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250412.json",
+      "resumed": false,
+      "sha256": "367d4c9fb0c641c3920a55df392965b5302f07e126a2ae527697eea4bdff2845"
+    },
+    {
+      "name": "mtar-42d-20250419",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250419.json",
+      "resumed": false,
+      "sha256": "8134e1f455f55a0f6059c6f93f476c6cbc8292ae91ae548c03c58c33cc944453"
+    },
+    {
+      "name": "mtar-42d-20250426",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250426.json",
+      "resumed": false,
+      "sha256": "f08380d307375c2d55b8b0be0922997d59be7636dfd40cfb11dc6f208cbb308e"
+    },
+    {
+      "name": "mtar-42d-20250503",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250503.json",
+      "resumed": false,
+      "sha256": "76f6e292a3ba99071d5a8dd8eefe0ec684562ddc0ab97d041bb8cbd040da5718"
+    },
+    {
+      "name": "mtar-42d-20250510",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250510.json",
+      "resumed": false,
+      "sha256": "163f4ff856833045375c95cb256d80bca667e33d466b86688464ef104b01570d"
+    },
+    {
+      "name": "mtar-42d-20250517",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250517.json",
+      "resumed": false,
+      "sha256": "9c54b13b630a5f454dd9bfca951e0cf32ff5c1f944b460c1983293ec1ba931c6"
+    },
+    {
+      "name": "mtar-42d-20250524",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250524.json",
+      "resumed": false,
+      "sha256": "3c955ee79f066440ef6243774d0e7c9e18a88b7f797d1e1d07a54391ff23961c"
+    },
+    {
+      "name": "mtar-42d-20250531",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250531.json",
+      "resumed": false,
+      "sha256": "247efd3b33484ac924b45746bdcd2fb2278f6c9353c70cc2cc07c8bfa58780c9"
+    },
+    {
+      "name": "mtar-42d-20250607",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250607.json",
+      "resumed": false,
+      "sha256": "d5d257777001f112451582c78994bf1be7e7599b5c874ba0c97691c32e4f3af2"
+    },
+    {
+      "name": "mtar-42d-20250614",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250614.json",
+      "resumed": false,
+      "sha256": "810757dc8da1f0e081fe982ab6f8c67e5e5f2b5d7a2417aafe7b797d8b6dead8"
+    },
+    {
+      "name": "mtar-42d-20250621",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250621.json",
+      "resumed": false,
+      "sha256": "e50a357cbd488f433177505d9b3bdec837ccfa67b4a8ce4d6c6d02a0e3fb27bd"
+    },
+    {
+      "name": "mtar-42d-20250628",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250628.json",
+      "resumed": false,
+      "sha256": "01900587f24c9b89a53d741d359bbb12eb52c5462318af9c62348947d75419b0"
+    },
+    {
+      "name": "mtar-42d-20250705",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250705.json",
+      "resumed": false,
+      "sha256": "811b0b38971c4a67d128f1aaf884fba2252a77976e5ef7653ea90671fdb09637"
+    },
+    {
+      "name": "mtar-42d-20250712",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250712.json",
+      "resumed": false,
+      "sha256": "c3326dadc6cb2e0238cabe5456d3ebf44904c78cc3cc522ec1ef049f65a150e9"
+    },
+    {
+      "name": "mtar-42d-20250719",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250719.json",
+      "resumed": false,
+      "sha256": "ed634237772c1c6e435da5d86c7a4c3cc420ffc1d95f410c265848dc63eee752"
+    },
+    {
+      "name": "mtar-42d-20250726",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250726.json",
+      "resumed": false,
+      "sha256": "e52786ab4875ed2b2b414f84813834b93fa34febf5f1e2d9b62c0d977061e4f6"
+    },
+    {
+      "name": "mtar-42d-20250802",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250802.json",
+      "resumed": false,
+      "sha256": "232f54cff7d53586d20174b045057619ff2825bedbe17bfdd6157bb6d8c5a7c8"
+    },
+    {
+      "name": "mtar-42d-20250809",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250809.json",
+      "resumed": false,
+      "sha256": "a4bfeac354eab6a1e52b430238efa47279ecd92a481b9b1b04ed75ce77e0e189"
+    },
+    {
+      "name": "mtar-42d-20250816",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250816.json",
+      "resumed": false,
+      "sha256": "6d85334810286c4dad321ae78296b2e670a208bee3d21f570c707f39610ef8ea"
+    },
+    {
+      "name": "mtar-42d-20250823",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250823.json",
+      "resumed": false,
+      "sha256": "e17aa62d1db82222769b23c4557c8f894db600b49425dcbb7641cab856c5fb46"
+    },
+    {
+      "name": "mtar-42d-20250830",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250830.json",
+      "resumed": false,
+      "sha256": "2a9af18a0304d47609e6f0828fe8aa0a0b80d9554747976d525a9439331c78ee"
+    },
+    {
+      "name": "mtar-42d-20250906",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250906.json",
+      "resumed": false,
+      "sha256": "b2cdc570ba8e1ac4aa04117eb796f49ef97eb59cc22c933394bbb5abd8facda4"
+    },
+    {
+      "name": "mtar-42d-20250913",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250913.json",
+      "resumed": false,
+      "sha256": "faf21a2b74bd0e3cea1e28c4231b0bb36737df1730eaa0fcdaa2f698871b8415"
+    },
+    {
+      "name": "mtar-42d-20250920",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250920.json",
+      "resumed": false,
+      "sha256": "218c16d0f7ac4816206bd9e66350066568d01e2b1ea0b535003002a0342be975"
+    },
+    {
+      "name": "mtar-42d-20250927",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20250927.json",
+      "resumed": false,
+      "sha256": "3e9dbc69bcb89ee9ffd5b53e963c76f5937fb0210354dedde055c9b7eac6a2b9"
+    },
+    {
+      "name": "mtar-42d-20251004",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20251004.json",
+      "resumed": false,
+      "sha256": "433231451efc15b785b84fa34b5fdfd6586d8605944d7980fada5be74068d119"
+    },
+    {
+      "name": "mtar-42d-20251011",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20251011.json",
+      "resumed": false,
+      "sha256": "3ed54cf81aea6fd907331070409ae342343ada976d0711972429ae4b82e550cb"
+    },
+    {
+      "name": "mtar-42d-20251018",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20251018.json",
+      "resumed": false,
+      "sha256": "52f768da982e8b786ed380b7213203a570f7c6759b555055fbf7b02d21005e55"
+    },
+    {
+      "name": "mtar-42d-20251025",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20251025.json",
+      "resumed": false,
+      "sha256": "4282cb7da6429e3f60d750697ab0fb1bcbc54d3c9896069987e8f605528c5adc"
+    },
+    {
+      "name": "mtar-42d-20251101",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20251101.json",
+      "resumed": false,
+      "sha256": "5cd736d3cb6935eb9cc5a68cd8a201b969fdc19ff563b1d966b3fe335211b73d"
+    },
+    {
+      "name": "mtar-42d-20251108",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20251108.json",
+      "resumed": false,
+      "sha256": "541fa4eb5a0901beeaeb3f06e64c3fe9f6f34916ded963b2403f163300a8e25e"
+    },
+    {
+      "name": "mtar-42d-20251115",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20251115.json",
+      "resumed": false,
+      "sha256": "23c6a66e6544faa2ac8fc089d1738c57cd5c184ac93d4bdb8161dada62539212"
+    },
+    {
+      "name": "mtar-42d-20251122",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20251122.json",
+      "resumed": false,
+      "sha256": "8449c58d72ce0c6e36dcc442da7cab92731c52a563d73b94327d804ef542bfeb"
+    },
+    {
+      "name": "mtar-42d-20251129",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20251129.json",
+      "resumed": false,
+      "sha256": "fb671b9f6c9b6377595309aa22359a832273f134e6e7acd7b60b072356c6cff4"
+    },
+    {
+      "name": "mtar-42d-20251206",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20251206.json",
+      "resumed": false,
+      "sha256": "ea7f7f0f0074f84f971491be9b84939a0e0e57632efa91ab35c40610f4eea5b1"
+    },
+    {
+      "name": "mtar-42d-20251213",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20251213.json",
+      "resumed": false,
+      "sha256": "a54b9e1ea7c1eb265dfcb8032a92d4a5c557b4b5c503459137f3191203566ba4"
+    },
+    {
+      "name": "mtar-42d-20251220",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20251220.json",
+      "resumed": false,
+      "sha256": "fb22172e6e6418cc65b539e2c1ef4c1416a4aa43a52d2ee4b92d3edfc0b61184"
+    },
+    {
+      "name": "mtar-42d-20251227",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20251227.json",
+      "resumed": false,
+      "sha256": "c7c8b0f651fdfb7d2bc558820a0e14ad49652f9c51626e0860cf8c107571029f"
+    },
+    {
+      "name": "mtar-42d-20260103",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20260103.json",
+      "resumed": false,
+      "sha256": "aba5d48df6f99ca8eb064e512c9dd509e8777cf1680136cab199ef7867619f7c"
+    },
+    {
+      "name": "mtar-42d-20260110",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20260110.json",
+      "resumed": false,
+      "sha256": "8ab59b1a09d331b12bf25659390c02b6a6e9e511f262e8fb8a629124bafbf764"
+    },
+    {
+      "name": "mtar-42d-20260117",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20260117.json",
+      "resumed": false,
+      "sha256": "71a06f405f2cf8cf5b25fe42649c91e345aacfe5563547ad7228cfe77ffee6ed"
+    },
+    {
+      "name": "mtar-42d-20260124",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20260124.json",
+      "resumed": false,
+      "sha256": "6bda8f8b05794551c2dc20fcb80ac77adf5ae046ccf4b6624e721f21d33204b2"
+    },
+    {
+      "name": "mtar-42d-20260131",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20260131.json",
+      "resumed": false,
+      "sha256": "c84012cb405b90fb9332ff3094f094a12faa1edcf6aebb0bd5c94e1ccd8fdc41"
+    },
+    {
+      "name": "mtar-42d-20260207",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20260207.json",
+      "resumed": false,
+      "sha256": "b5b2206e568cf2bf19e4b50aceab32120206d8c92ee9a66ef979070e08467e67"
+    },
+    {
+      "name": "mtar-42d-20260214",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20260214.json",
+      "resumed": false,
+      "sha256": "d9b7faba590b7ff5f308a5a279b8096db40b3312bf6cb160459f7d9f7490df3d"
+    },
+    {
+      "name": "mtar-42d-20260221",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20260221.json",
+      "resumed": false,
+      "sha256": "a9d7b50f5b39ab2026559c2a652b92b07dfe813a4b55d8f664b23dd2a0a6522d"
+    },
+    {
+      "name": "mtar-42d-20260228",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20260228.json",
+      "resumed": false,
+      "sha256": "2897ec427ab3478c578a9afe4cad891883c28a167e42ea5c9cfe1aff6e8c4e88"
+    },
+    {
+      "name": "mtar-42d-20260307",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20260307.json",
+      "resumed": false,
+      "sha256": "49a357ab1f07ca16522e70071b795a8f897e42bc227548aee7982624634272e2"
+    },
+    {
+      "name": "mtar-42d-20260314",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20260314.json",
+      "resumed": false,
+      "sha256": "20e3901ec8215875ec8a47589fc0ac40ff49c7d217e10fcf6e9d10e1e959317f"
+    },
+    {
+      "name": "mtar-42d-20260321",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20260321.json",
+      "resumed": false,
+      "sha256": "00367580843dd238dbeb75c22fc2577a08463b97de364e7abfc2d39482da2ed2"
+    },
+    {
+      "name": "mtar-42d-20260328",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20260328.json",
+      "resumed": false,
+      "sha256": "bb9207f48a8bc0933773b653699031c6c27816dba71ca79aaf019b778e960f8f"
+    },
+    {
+      "name": "mtar-42d-20260404",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20260404.json",
+      "resumed": false,
+      "sha256": "f2b865bc143b4e69755bf7dea55272841093873c3fa20138e14dc664757efc98"
+    },
+    {
+      "name": "mtar-42d-20260411",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20260411.json",
+      "resumed": false,
+      "sha256": "158f25c6a67f1083b92cb45fc92ddc68cb8c01de3a62e2e94116c49e1db21e2e"
+    },
+    {
+      "name": "mtar-42d-20260418",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20260418.json",
+      "resumed": false,
+      "sha256": "ad80a670f368e7d87eed52b4113aeeaf1f6c28a53789a89cdd56e77651fa6a3d"
+    },
+    {
+      "name": "mtar-42d-20260425",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20260425.json",
+      "resumed": false,
+      "sha256": "7c102c3ea8f51987a1431106305a2f4a7bac6e7f129ce475419f463d2b611056"
+    },
+    {
+      "name": "mtar-42d-20260502",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20260502.json",
+      "resumed": false,
+      "sha256": "d6354615c0fcc46c90f305100e946c5602f8555ceed67a6ee3bb6df6fcb511e4"
+    },
+    {
+      "name": "mtar-42d-20260509",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20260509.json",
+      "resumed": false,
+      "sha256": "a1a08c1db1109aa8ca71c27aa24e6207ae6f07f93dbfc3f9c9703686740d8cb8"
+    },
+    {
+      "name": "mtar-42d-20260516",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20260516.json",
+      "resumed": false,
+      "sha256": "b41bb99bf46a8f292cdcc755850acdb0b8bc7d08e3e02900e10cafd0313dac70"
+    },
+    {
+      "name": "mtar-42d-20260523",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/mtar/mtar-42d-20260523.json",
+      "resumed": false,
+      "sha256": "ba736e11ef7691468224f76fdf52c3783ab3510612bc0c73c9b711b1f3633dce"
+    }
+  ],
+  "source_commit": "d516d40dafbac63d0c9d607224cae8de9721a2ce",
+  "wall_seconds": 1290.2536325454712,
+  "workers": 8
+}

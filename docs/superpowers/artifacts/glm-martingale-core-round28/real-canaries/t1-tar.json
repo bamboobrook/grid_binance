@@ -1,0 +1,40 @@
+{
+  "activation": "FIRST_SIGNAL",
+  "anchor_ms": 1689984000000,
+  "btc_margin": 0.0,
+  "btc_orders": 0,
+  "btc_pnl": 0.0,
+  "btc_positions": 0,
+  "completed_signal_ms": 1690192799999,
+  "config_id": "T1-TAR",
+  "direction": "short_left_long_right",
+  "eligible_open_ms": 1690192800000,
+  "final_groups": 0,
+  "final_pending": 0,
+  "final_positions": 0,
+  "final_reserve": -0.0,
+  "h_left": null,
+  "h_right": null,
+  "left": {
+    "open": 240.68,
+    "qty": 0.089,
+    "side": "sell",
+    "symbol": "BCHUSDT",
+    "weight": 0.21219095325428788
+  },
+  "model_hash": "37e078a5145ffdb4f3832d1b4c44f8bcdaf62e6348439f17503184ef98b2a006",
+  "next_1m_open_proved": true,
+  "pair_id": "BCHUSDT__ETCUSDT",
+  "passed": true,
+  "resolved_gross_mismatch": 0.007914514390766392,
+  "right": {
+    "open": 17.891,
+    "qty": 4.41,
+    "side": "buy",
+    "symbol": "ETCUSDT",
+    "weight": 0.7878090467457122
+  },
+  "schema_version": 1,
+  "wallet_after_open": 1999.9398081020001,
+  "wallet_after_reconcile": 1999.8796162040003
+}

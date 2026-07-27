@@ -1,0 +1,24 @@
+{
+  "argv": [
+    "scripts/r28_validate_models.py",
+    "--phase",
+    "all-models",
+    "--artifact-root",
+    "artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce",
+    "--workers",
+    "8",
+    "--resume"
+  ],
+  "blas_threads": {
+    "MKL_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1"
+  },
+  "end_epoch": 1785115222.2416997,
+  "exit_code": 0,
+  "peak_rss_kib": 632328,
+  "pid": 2,
+  "start_epoch": 1785114611.2156296,
+  "wall_seconds": 611.0260708332062,
+  "workers": 8
+}

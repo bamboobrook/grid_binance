@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "target/release/r28_execute",
+    "--phase",
+    "r0-recovery-g0",
+    "--artifact-root",
+    "artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce",
+    "--resume"
+  ],
+  "blas_threads": null,
+  "data_hash": "36ec45fed5d048a783e16ecc0f90ea46e0ffedededf157d25f127edf7d19baa6",
+  "end_utc": "2026-07-27T00:42:28.529817566+00:00",
+  "exit_code": 0,
+  "input_hash": "1bfdaff52057a10edc4579b13d6255ed02a7a0d9cd59b3c2c1af9695688b3f38",
+  "peak_rss_kib": 161496,
+  "pid": 2,
+  "policy_hash": "0898a8d7bba0e0369e09b92cd9e7b589eda7519367add0666b391cbe23d6f486",
+  "resume": true,
+  "source_commit": "d516d40dafbac63d0c9d607224cae8de9721a2ce",
+  "start_utc": "2026-07-27T00:39:12.210106618+00:00",
+  "wall_seconds": 196.319711309,
+  "workers": 1
+}

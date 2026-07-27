@@ -1,0 +1,13 @@
+{
+  "all_no_fit_no_signal_censored_rejects_in_denominator": true,
+  "c0_baseline_trials": 16,
+  "ensemble_trials": 0,
+  "g2_total_trials": 16,
+  "g3_survivor_count": 2,
+  "round_1_27_visible_trial_floor": 1129,
+  "round_1_28_visible_trial_floor": 1145,
+  "round_1_28_visible_trial_floor_applied": true,
+  "schema_version": 1,
+  "t1_activation_trials": 2,
+  "t1_g2_trials": 0
+}

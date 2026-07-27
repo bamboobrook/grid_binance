@@ -1,0 +1,16 @@
+{
+  "account_validator": true,
+  "c0_policies": "16/16 terminal",
+  "d0": "terminal",
+  "g1": "terminal",
+  "g2": "terminal",
+  "g3": "TERMINAL",
+  "model_validator": true,
+  "mtar_snapshots": "152/152 terminal",
+  "mutants": "9/9 rejected",
+  "r0_recovery": "pass",
+  "schema_version": 1,
+  "source_commit": "d516d40dafbac63d0c9d607224cae8de9721a2ce",
+  "status": "VALID_FRONTIER_PROGRESS_NO_TARGET",
+  "tar_snapshots": "152/152 terminal"
+}

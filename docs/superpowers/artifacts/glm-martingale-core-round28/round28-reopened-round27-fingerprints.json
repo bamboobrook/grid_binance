@@ -1,0 +1,9 @@
+{
+  "reopened": [
+    "R27-C0 1h RAW alpha 0.10/0.20 SO 0.50/0.75",
+    "R27-C0 5m RAW alpha 0.10/0.20 SO 0.50/0.75"
+  ],
+  "required_suffix": "R28-CORRECTED-DIRECTION-CAUSAL-CENSORED-CONCURRENT-CALENDAR12-<weighting>",
+  "round27_status": "MATERIALLY_INCOMPLETE_INVALID_G2_AND_FAMILY_CLOSURE",
+  "schema_version": 1
+}

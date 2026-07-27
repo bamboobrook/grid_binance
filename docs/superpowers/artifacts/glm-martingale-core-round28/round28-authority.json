@@ -1,0 +1,28 @@
+{
+  "account_validator_passed": true,
+  "account_validator_sha256": "284670462b7a299b9053eb38d542b92679c15be04f029baf6a4ae1931c26e240",
+  "btc_reference_only": true,
+  "c0_policy_terminals": 16,
+  "data_sha256": "36ec45fed5d048a783e16ecc0f90ea46e0ffedededf157d25f127edf7d19baa6",
+  "ensemble_policy_terminals": 0,
+  "model_validator_passed": true,
+  "model_validator_sha256": "58819cb5b0da0a8915f91b723a53552ee1e670005881f6adaa20f8ed59775c45",
+  "outer_return_used_for_selection": false,
+  "p_b_survivors": [
+    "R28-C0-5m-Equal-A0.10-SO0.50-R28-CORRECTED-DIRECTION-CAUSAL-CENSORED-CONCURRENT-CALENDAR12-Equal",
+    "R28-C0-5m-Equal-A0.10-SO0.75-R28-CORRECTED-DIRECTION-CAUSAL-CENSORED-CONCURRENT-CALENDAR12-Equal"
+  ],
+  "policy_sha256": "0898a8d7bba0e0369e09b92cd9e7b589eda7519367add0666b391cbe23d6f486",
+  "recovery_passed": true,
+  "round27_corrected_status": "MATERIALLY_INCOMPLETE_INVALID_G2_AND_FAMILY_CLOSURE",
+  "round27_family_closure_inherited": false,
+  "schema_version": 1,
+  "source_commit": "d516d40dafbac63d0c9d607224cae8de9721a2ce",
+  "source_tree": "998fa2b9745ee9c0d79118daaf92c3d21e5b6f8e",
+  "status": "VALID_FRONTIER_PROGRESS_NO_TARGET",
+  "strict_valid_candidates": 0,
+  "t1_policy_terminals": 0,
+  "target_hit": false,
+  "validator_commit": "d516d40dafbac63d0c9d607224cae8de9721a2ce",
+  "validator_mutants_all_rejected": true
+}

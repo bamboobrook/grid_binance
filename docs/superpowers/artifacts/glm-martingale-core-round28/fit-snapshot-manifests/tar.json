@@ -1,0 +1,1240 @@
+{
+  "blas_threads": {
+    "MKL_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1"
+  },
+  "exchange_info_sha256": "aa6b21bbb04a421ffa72e8755312cdb20de684a9e016400c14fad7ee94f9be7b",
+  "funding_sha256": "356e270dacce36b4703364545beeafe402f1aa55aa11caebc5708f5f3b6767a1",
+  "market": {
+    "bytes": 119277240320,
+    "path": "/home/bumblebee/Project/grid_binance/data/market_data_full.db",
+    "sha256": "4ceed5eb0bcfdea701a6e156d570cfb33c2ea7274413abee5c93116fc28afec4",
+    "sha256_bound_to_bytes": false,
+    "sha256_evidence": "independent sha256sum before immutable replay source commit",
+    "symbols": [
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "BTCUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "AAVEUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "ADAUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "ALGOUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "APTUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "ATOMUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "AVAXUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "BCHUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "BNBUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "COMPUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "CRVUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "DASHUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "DOGEUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "DOTUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "DYDXUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "EGLDUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "ETCUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "ETHUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "FILUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "GALAUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "HBARUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "ICPUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "INJUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "LINKUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "NEARUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "SOLUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "TRXUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "UNIUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "XRPUSDT"
+      },
+      {
+        "close_time_contract_errors": 0,
+        "complete": true,
+        "duplicate_minutes": 0,
+        "first_ms": 1672531200000,
+        "last_ms": 1780271940000,
+        "missing_minutes": 0,
+        "row_count": 1795680,
+        "symbol": "ZECUSDT"
+      }
+    ]
+  },
+  "outer_return_read": false,
+  "peak_rss_kib": 419836,
+  "phase": "tar-fit",
+  "schema_version": 1,
+  "snapshot_count": 152,
+  "snapshots": [
+    {
+      "name": "tar-42d-20230701",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20230701.json",
+      "resumed": false,
+      "sha256": "7595cea480e26274ded3baadbc85c322c38f095d1790195e851a5f0c7a6aabec"
+    },
+    {
+      "name": "tar-42d-20230708",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20230708.json",
+      "resumed": false,
+      "sha256": "31c3a3abe243d395b429eec13d7ad048bac5923dda5e5d780bc0a483955da8b9"
+    },
+    {
+      "name": "tar-42d-20230715",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20230715.json",
+      "resumed": false,
+      "sha256": "8919dab9145aaafa104c36641244641407973522a1065ea332e556f6c7a776fd"
+    },
+    {
+      "name": "tar-42d-20230722",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20230722.json",
+      "resumed": false,
+      "sha256": "5230175e1c05796acf589f46330da63d3cb9b750ab3e0e11a64436e0a3054521"
+    },
+    {
+      "name": "tar-42d-20230729",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20230729.json",
+      "resumed": false,
+      "sha256": "f499729d72ac9b6e3b158ba26ede462704711b3ce5f5818a8d24b97ec80f2091"
+    },
+    {
+      "name": "tar-42d-20230805",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20230805.json",
+      "resumed": false,
+      "sha256": "c93cc21f491d37ce857c5044d2ef62345d22cee3f1073c8dabacffdead22e80a"
+    },
+    {
+      "name": "tar-42d-20230812",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20230812.json",
+      "resumed": false,
+      "sha256": "2dd554cd9d20ff94f27db6424a443294dfee5c8f9b45c2ebc44e3daac7fc5158"
+    },
+    {
+      "name": "tar-42d-20230819",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20230819.json",
+      "resumed": false,
+      "sha256": "f58e6b2ba33ce9ee9c4bd888099a73f1295b00c5062a28eb749af2c9032d61ef"
+    },
+    {
+      "name": "tar-42d-20230826",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20230826.json",
+      "resumed": false,
+      "sha256": "5a20b09ed23104cc81562ea996edd7deb3061f3fa56f56f34ebeb43d1b235581"
+    },
+    {
+      "name": "tar-42d-20230902",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20230902.json",
+      "resumed": false,
+      "sha256": "e04e5de1cd2295c1058602036952f5212c3cb03c868d1148a4d7366dcf056e22"
+    },
+    {
+      "name": "tar-42d-20230909",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20230909.json",
+      "resumed": false,
+      "sha256": "57ceb35e5bfb5a9647dfbfb788ac5c394163d561f54cfac7e8ec8b8fc3ddea22"
+    },
+    {
+      "name": "tar-42d-20230916",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20230916.json",
+      "resumed": false,
+      "sha256": "85a814bf000dee9e5bb0a6703071adcf16f241e3b09497e8e509d7ce28bc3e35"
+    },
+    {
+      "name": "tar-42d-20230923",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20230923.json",
+      "resumed": false,
+      "sha256": "3c53ff6ea4e70ebbde688b141a855dcb0e919bdc2d36d1e4b2315a08821aae00"
+    },
+    {
+      "name": "tar-42d-20230930",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20230930.json",
+      "resumed": false,
+      "sha256": "a1b800f68da93d1f8fe8913451d4a992b85c892d82d07787827998fefd474165"
+    },
+    {
+      "name": "tar-42d-20231007",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20231007.json",
+      "resumed": false,
+      "sha256": "48da4b7c8ad0cb0c2dc51530620cfd6fb3a3529588a55019814aeb304cecfbd5"
+    },
+    {
+      "name": "tar-42d-20231014",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20231014.json",
+      "resumed": false,
+      "sha256": "b1d72ac45eb03fa62eb1e9d698ed98cadeaeefb59a002c9e1a835cc13de3dca7"
+    },
+    {
+      "name": "tar-42d-20231021",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20231021.json",
+      "resumed": false,
+      "sha256": "c197f257f663ea7712e21247068ef8ba358d0931776d139931e947748794296a"
+    },
+    {
+      "name": "tar-42d-20231028",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20231028.json",
+      "resumed": false,
+      "sha256": "bbf42d0ef8ee279a251554425fa9bf64f6d34cf0c8ee43d655cdb39443fdd6a8"
+    },
+    {
+      "name": "tar-42d-20231104",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20231104.json",
+      "resumed": false,
+      "sha256": "0ecf370f35dc22447c32fc5914a006362153fffe5829d4a9e1ad0bfab778f384"
+    },
+    {
+      "name": "tar-42d-20231111",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20231111.json",
+      "resumed": false,
+      "sha256": "2c00c91519862aeaab44b891a280bd01e76f8865a72a2558663fed186f11a2a0"
+    },
+    {
+      "name": "tar-42d-20231118",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20231118.json",
+      "resumed": false,
+      "sha256": "20f4eac9db43052a2a2bc8102cffe36eac03b0e77d18be3947f6307498219139"
+    },
+    {
+      "name": "tar-42d-20231125",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20231125.json",
+      "resumed": false,
+      "sha256": "fdfbd7569b3e764474f7968358cd19b4a3dd05c6e50ca91377ae6e83f131bcaa"
+    },
+    {
+      "name": "tar-42d-20231202",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20231202.json",
+      "resumed": false,
+      "sha256": "6246ed93acd87824a15ad6d72afff6b052e370796cbcdf8babbdc71d48d55a9c"
+    },
+    {
+      "name": "tar-42d-20231209",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20231209.json",
+      "resumed": false,
+      "sha256": "9b32359047486f08a16e2ab67e438955ce62b42d324ac70186d5f244d1a02c8e"
+    },
+    {
+      "name": "tar-42d-20231216",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20231216.json",
+      "resumed": false,
+      "sha256": "7899bd3995d56697acfdb0a5e0f2bbed79dffd70cbdd5c8b3c302b312acc59d3"
+    },
+    {
+      "name": "tar-42d-20231223",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20231223.json",
+      "resumed": false,
+      "sha256": "0f20d84e72d9de80226da03618a0ab7063855a305579a58a8e6ebb222130d9e6"
+    },
+    {
+      "name": "tar-42d-20231230",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20231230.json",
+      "resumed": false,
+      "sha256": "4e498c350495b952d87fd154e4fe7b8b9ef217708fca39bdd846504db0dbe78c"
+    },
+    {
+      "name": "tar-42d-20240106",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240106.json",
+      "resumed": false,
+      "sha256": "3e50bef2ed9207cc6b22db870c17aedb0167c110ac208a7fd551a472dc7d4f3c"
+    },
+    {
+      "name": "tar-42d-20240113",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240113.json",
+      "resumed": false,
+      "sha256": "eebc8b2a9bd4d65e0b8574f424312dfa12c77ac51634e89ebc9b84bc44e30cf8"
+    },
+    {
+      "name": "tar-42d-20240120",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240120.json",
+      "resumed": false,
+      "sha256": "602ce641aa321604a5034c4ba520fb51daa47521c696478b693c6efb86d0f059"
+    },
+    {
+      "name": "tar-42d-20240127",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240127.json",
+      "resumed": false,
+      "sha256": "7c2b4b56f85f7816bfbb11d3ba5fa10f36a06765ac3002b5d8e99519a7be8c43"
+    },
+    {
+      "name": "tar-42d-20240203",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240203.json",
+      "resumed": false,
+      "sha256": "ff07f098bb4e94e6b8cb8d7b295e731690826b60150c4c82594586d0c017efe2"
+    },
+    {
+      "name": "tar-42d-20240210",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240210.json",
+      "resumed": false,
+      "sha256": "d4a7a9f0f3af8b0a35f28f67af1120e18bff1016b0e149f054edcf56b169cfc9"
+    },
+    {
+      "name": "tar-42d-20240217",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240217.json",
+      "resumed": false,
+      "sha256": "e603a20f9c228b0a8462e46ad6389ecdbc6092d29e5ae058d1e2f5106ee4b66a"
+    },
+    {
+      "name": "tar-42d-20240224",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240224.json",
+      "resumed": false,
+      "sha256": "1b642d203576763f6876d85f4b9f2d9664a6ad9963301359640bdcf93a4eb24d"
+    },
+    {
+      "name": "tar-42d-20240302",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240302.json",
+      "resumed": false,
+      "sha256": "c4ffae926c704409a9cdd8f07cd1294d256aa584671bd0749e7fd88b76112aa9"
+    },
+    {
+      "name": "tar-42d-20240309",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240309.json",
+      "resumed": false,
+      "sha256": "61f466805fee6256d61c0d8b46d3bff766ce0b84ca15674dd90403a282eb7858"
+    },
+    {
+      "name": "tar-42d-20240316",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240316.json",
+      "resumed": false,
+      "sha256": "34dc51e5b7ae780e9ebde3f41726925d03659295e1b02f67e60cb312820dd4f7"
+    },
+    {
+      "name": "tar-42d-20240323",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240323.json",
+      "resumed": false,
+      "sha256": "7ddae5b0654193738560fc973c48e620e163e7282b75ba4eb2aed4c8daee0a87"
+    },
+    {
+      "name": "tar-42d-20240330",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240330.json",
+      "resumed": false,
+      "sha256": "3b5954dc50dba81377711957c4293b3be9392ec473194bbf4dea418029ff146b"
+    },
+    {
+      "name": "tar-42d-20240406",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240406.json",
+      "resumed": false,
+      "sha256": "1f9d0544cfe32f186cec986e78db291e0bf172d4baa68434565981c06155452b"
+    },
+    {
+      "name": "tar-42d-20240413",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240413.json",
+      "resumed": false,
+      "sha256": "af53555e8e175a9c531f403b78b80fc5b692cd8f3cabf2afff575bd644bf761b"
+    },
+    {
+      "name": "tar-42d-20240420",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240420.json",
+      "resumed": false,
+      "sha256": "f8c2da0dd3b546b077529a56af9f52009f6c1636ca71cda8bf9aac6ece0c7a98"
+    },
+    {
+      "name": "tar-42d-20240427",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240427.json",
+      "resumed": false,
+      "sha256": "173eb69558fc3654dd257f35737bb59963fc707ca35e5764cdccb05896e3fe1d"
+    },
+    {
+      "name": "tar-42d-20240504",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240504.json",
+      "resumed": false,
+      "sha256": "61ed867eb9b2e6783bf73beff930b6ee80eb08e6d5956011cea18d4f2ed750f4"
+    },
+    {
+      "name": "tar-42d-20240511",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240511.json",
+      "resumed": false,
+      "sha256": "f3086e3036ad6d5b56b761bc772dd90cc8a22429c814b81aa5a27686cae19a9f"
+    },
+    {
+      "name": "tar-42d-20240518",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240518.json",
+      "resumed": false,
+      "sha256": "b6b9265e3fa37677cb8389b1b5fc11cee1dd2d48b6eb357824409c9ff267a8da"
+    },
+    {
+      "name": "tar-42d-20240525",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240525.json",
+      "resumed": false,
+      "sha256": "742d7e6f49cc3375713b5fdf3074a3b08e9e1c9265e39c56c38e022fa188520e"
+    },
+    {
+      "name": "tar-42d-20240601",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240601.json",
+      "resumed": false,
+      "sha256": "47462f3b3be886390c31d02e5bf35696dc6945227d2dd21189f7ed424dcafc52"
+    },
+    {
+      "name": "tar-42d-20240608",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240608.json",
+      "resumed": false,
+      "sha256": "eb7eaec3fdedc436827b7c8632968d5f6c6f45856c14567fde7a716af64ccaec"
+    },
+    {
+      "name": "tar-42d-20240615",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240615.json",
+      "resumed": false,
+      "sha256": "41f03da1f93bc06cb74bc8eac02e8e7d10290fd4c6288045284eb772d4d8e98e"
+    },
+    {
+      "name": "tar-42d-20240622",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240622.json",
+      "resumed": false,
+      "sha256": "a1087b35fd253f326e6db7150f49f280acd940f73d731b63b5b99533198be240"
+    },
+    {
+      "name": "tar-42d-20240629",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240629.json",
+      "resumed": false,
+      "sha256": "a6d2ce4e66bb9ec38a0a4ee6305402cdd543a0a349380d2a055260103760685b"
+    },
+    {
+      "name": "tar-42d-20240706",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240706.json",
+      "resumed": false,
+      "sha256": "8456d99b043f707c5141ea4f7cdb83e6780afa0094e257f8a324510a86a8d8b3"
+    },
+    {
+      "name": "tar-42d-20240713",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240713.json",
+      "resumed": false,
+      "sha256": "c604508419db40647344168ed9f4700dc374ed64be79dfca89e38d0c36b9b61b"
+    },
+    {
+      "name": "tar-42d-20240720",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240720.json",
+      "resumed": false,
+      "sha256": "5260529a0e1ab4cdf5714f395739c45443b95791c719f5f77ff7e9c9d279d1c4"
+    },
+    {
+      "name": "tar-42d-20240727",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240727.json",
+      "resumed": false,
+      "sha256": "323b7b0580fa9320209d4f9caa20b846865ac1c66d01ada7ff0119c076ff899c"
+    },
+    {
+      "name": "tar-42d-20240803",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240803.json",
+      "resumed": false,
+      "sha256": "f27170fba1616643c798c1f1838373c7355471f6033e9cd05c1fac11546d9059"
+    },
+    {
+      "name": "tar-42d-20240810",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240810.json",
+      "resumed": false,
+      "sha256": "e9fd9e96d46d96e63f947fad6a9328083a895a79b481024defe63ac4d2042dc7"
+    },
+    {
+      "name": "tar-42d-20240817",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240817.json",
+      "resumed": false,
+      "sha256": "f59d9c7ff86000c80b0ff83523d53e98b46215e5dd33d29531a4ae573ee094cf"
+    },
+    {
+      "name": "tar-42d-20240824",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240824.json",
+      "resumed": false,
+      "sha256": "21ae1b21755729bfc523063e5771b8bcb9b5af9852794603796c03fe3383b6ae"
+    },
+    {
+      "name": "tar-42d-20240831",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240831.json",
+      "resumed": false,
+      "sha256": "406b59742beff299db86004edef607b781ac4d9acc4f8afdb21beb6e64a6f0ce"
+    },
+    {
+      "name": "tar-42d-20240907",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240907.json",
+      "resumed": false,
+      "sha256": "bd5fc8c2392ead70c6461eb242e0d6d1f381fe4edea10a617b66744886cbcf6e"
+    },
+    {
+      "name": "tar-42d-20240914",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240914.json",
+      "resumed": false,
+      "sha256": "05d767c0c85ef1b51d3bca45b714896d710079f0a39d87c61b78278813268c93"
+    },
+    {
+      "name": "tar-42d-20240921",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240921.json",
+      "resumed": false,
+      "sha256": "99a33e29da3c212d91d8ed5da7828f4cddfe1e19354110d64c08ec3b7cdbd04d"
+    },
+    {
+      "name": "tar-42d-20240928",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20240928.json",
+      "resumed": false,
+      "sha256": "43a553f86ee4da811b9008c4893604b4f11300b621d6307d5e02ab07ef123556"
+    },
+    {
+      "name": "tar-42d-20241005",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20241005.json",
+      "resumed": false,
+      "sha256": "3dd457c3224f7e467f695f796a22d615222952afdb93ca065c288aaaba811451"
+    },
+    {
+      "name": "tar-42d-20241012",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20241012.json",
+      "resumed": false,
+      "sha256": "52bea41e012c0bfff1e9b7a59e9ceb3b550b46181dd2f2dd299d0ac038e59423"
+    },
+    {
+      "name": "tar-42d-20241019",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20241019.json",
+      "resumed": false,
+      "sha256": "b2042cf0d75f7fb989482c019c9228a8440b3654a0efc6c11b5dc19ca46a3d78"
+    },
+    {
+      "name": "tar-42d-20241026",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20241026.json",
+      "resumed": false,
+      "sha256": "143dda4c11f8aa7e9c695768545bfe01b10ad9dc804ed509b7c15ca84b9215cd"
+    },
+    {
+      "name": "tar-42d-20241102",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20241102.json",
+      "resumed": false,
+      "sha256": "36a4dd23f9654bb134a2406a6809601b1287610f313ec7bada7929b77d823a8e"
+    },
+    {
+      "name": "tar-42d-20241109",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20241109.json",
+      "resumed": false,
+      "sha256": "39ea9d409cc234beebb6575d8ffb25c397a3ae4fc1ed3b19bb47a18c8b5191c5"
+    },
+    {
+      "name": "tar-42d-20241116",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20241116.json",
+      "resumed": false,
+      "sha256": "9350469b583030c70055b72ff1bf99a0890200cfef96d337a09f31c8bd80df19"
+    },
+    {
+      "name": "tar-42d-20241123",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20241123.json",
+      "resumed": false,
+      "sha256": "f5c0e4e04b192892e643262abbda063d3c77b5280175322696efc208fbefc179"
+    },
+    {
+      "name": "tar-42d-20241130",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20241130.json",
+      "resumed": false,
+      "sha256": "8032a52fd29e704787ef9316c319838fd7729851708428a798fb52b25cd8a267"
+    },
+    {
+      "name": "tar-42d-20241207",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20241207.json",
+      "resumed": false,
+      "sha256": "38c7905da521a5c9469c9efb15d579c0cd27c4e1439129cc252f2b7afafc8929"
+    },
+    {
+      "name": "tar-42d-20241214",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20241214.json",
+      "resumed": false,
+      "sha256": "aff4904f79823e1d4d42253ea1ef7973eecc31adba12b595683995ab35e13395"
+    },
+    {
+      "name": "tar-42d-20241221",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20241221.json",
+      "resumed": false,
+      "sha256": "02c3f996ff0652e06f1a1b2212f92ff98a689a8d800dd2ecb2ff05fdd62038ea"
+    },
+    {
+      "name": "tar-42d-20241228",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20241228.json",
+      "resumed": false,
+      "sha256": "1e878906aa576f4fb36ba8285c3657034310019381eba728e2ea4b8ff4ab8f25"
+    },
+    {
+      "name": "tar-42d-20250104",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250104.json",
+      "resumed": false,
+      "sha256": "134b80c6c2baba53d277158712608abeff9755c3d6f2992da12b767668d70cc4"
+    },
+    {
+      "name": "tar-42d-20250111",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250111.json",
+      "resumed": false,
+      "sha256": "80305c07c7f06c5bec84a5e9623fcf12281f03960d7b84daa5911b47219525e9"
+    },
+    {
+      "name": "tar-42d-20250118",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250118.json",
+      "resumed": false,
+      "sha256": "2a1b3103958e768c60abd71d231f517e1b45b310fe4351d61549b6cfeba54a48"
+    },
+    {
+      "name": "tar-42d-20250125",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250125.json",
+      "resumed": false,
+      "sha256": "f0010eb6a353fd5413ef38549e4b3baf6610d4f9415f6d35048fa82acbeb3fd1"
+    },
+    {
+      "name": "tar-42d-20250201",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250201.json",
+      "resumed": false,
+      "sha256": "3dae5d39d03b2ce658e52362c73563067f62639fa6cb17fe339603af987bbbfa"
+    },
+    {
+      "name": "tar-42d-20250208",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250208.json",
+      "resumed": false,
+      "sha256": "800e8de3e1c4fe63f26b6cdb6374a8df2a4b826417c5797efe8b5b953fec6ee1"
+    },
+    {
+      "name": "tar-42d-20250215",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250215.json",
+      "resumed": false,
+      "sha256": "52eba4330c5d620c49d44da840abc2388755e73f6ba69d754cfa5c8c7feebbc7"
+    },
+    {
+      "name": "tar-42d-20250222",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250222.json",
+      "resumed": false,
+      "sha256": "174a73f19c9fa8891963a3e30b17bf05b42809683bc2c49bed8f735a18bb6fdc"
+    },
+    {
+      "name": "tar-42d-20250301",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250301.json",
+      "resumed": false,
+      "sha256": "ad156bcaed591f92caf1a1c6e3874ec35b74cd86da2ac1a0476b19c0facd6a5e"
+    },
+    {
+      "name": "tar-42d-20250308",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250308.json",
+      "resumed": false,
+      "sha256": "ecf9c12f8771a6aadf2fb99fb8aa45b2f86ec857a58e56245e4b59c28301c2f0"
+    },
+    {
+      "name": "tar-42d-20250315",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250315.json",
+      "resumed": false,
+      "sha256": "da45800b87701427ba379d0a60f55481d923549f45ceaf018b3a947a44412c06"
+    },
+    {
+      "name": "tar-42d-20250322",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250322.json",
+      "resumed": false,
+      "sha256": "9dc81bff012db38a8edad5df40b5901f6300c82956fe29944cd96cfc90acfe51"
+    },
+    {
+      "name": "tar-42d-20250329",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250329.json",
+      "resumed": false,
+      "sha256": "a3ab385e3ca5bc41ec9979f5e2f0dd0940380cd3a6ca82919977adf08f457a8b"
+    },
+    {
+      "name": "tar-42d-20250405",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250405.json",
+      "resumed": false,
+      "sha256": "5d73117830aa852b430658a1e320be1a98342882ab689486579d8bff7e696121"
+    },
+    {
+      "name": "tar-42d-20250412",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250412.json",
+      "resumed": false,
+      "sha256": "6c19f9ad9500e9031ac4216eb96844306416608b68f6bc3e571accc62d1c167d"
+    },
+    {
+      "name": "tar-42d-20250419",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250419.json",
+      "resumed": false,
+      "sha256": "429d5cb976b3d42a38e49de0f0ca2ab8dfd2a72eefbb769ad06656a5d679d113"
+    },
+    {
+      "name": "tar-42d-20250426",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250426.json",
+      "resumed": false,
+      "sha256": "59a620e00a114a53ba2d48b20a0edccc3144f8a3a7dbbb58af8005bb4e270cc9"
+    },
+    {
+      "name": "tar-42d-20250503",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250503.json",
+      "resumed": false,
+      "sha256": "e4e18a6a5987da14c709dfe62316fc3207e6d291440a408e0f5ba611f84f4f9b"
+    },
+    {
+      "name": "tar-42d-20250510",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250510.json",
+      "resumed": false,
+      "sha256": "7eebc9dbad2ceb131e85be90f3e4b692e993180fe88b0321aa2fcf993adfb5df"
+    },
+    {
+      "name": "tar-42d-20250517",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250517.json",
+      "resumed": false,
+      "sha256": "7387f186b8c99426c13c78e87b4a3226c3e586ba3a8a0065198738cbb4a82b3a"
+    },
+    {
+      "name": "tar-42d-20250524",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250524.json",
+      "resumed": false,
+      "sha256": "96af908e4a8b9e13a0bb25e1e21b9b98e292d75c342cbb9d2b226a5f2fec3a09"
+    },
+    {
+      "name": "tar-42d-20250531",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250531.json",
+      "resumed": false,
+      "sha256": "c6092081b3b9a36b12c156b93e5512509897fdefafbef727ddba7de243c90fce"
+    },
+    {
+      "name": "tar-42d-20250607",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250607.json",
+      "resumed": false,
+      "sha256": "f0b683b52241bc5c0f7dafe5090861a4d747a36c38780579f5c7267193415730"
+    },
+    {
+      "name": "tar-42d-20250614",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250614.json",
+      "resumed": false,
+      "sha256": "db09bade90a5c93c4e14ba0c82aca63a19522ebfa48bc6ebe8037d12ac6fd896"
+    },
+    {
+      "name": "tar-42d-20250621",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250621.json",
+      "resumed": false,
+      "sha256": "92f6398ef87bc3d76219bc1fac0adcad2db23e7feca87c4d4ad07de4ec899e7c"
+    },
+    {
+      "name": "tar-42d-20250628",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250628.json",
+      "resumed": false,
+      "sha256": "7656c01b2ba05fa43cbea971e654bf80db6a470ea4a3b01968cf7d39fcbc2da8"
+    },
+    {
+      "name": "tar-42d-20250705",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250705.json",
+      "resumed": false,
+      "sha256": "7d21089e575167d6f42ead5378b0d6223ae2e6b911ba36452ae888cdfca2073d"
+    },
+    {
+      "name": "tar-42d-20250712",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250712.json",
+      "resumed": false,
+      "sha256": "27d3ac17b7382420dd1d49781635d84786430de486e15ab17e54a25c4122eaac"
+    },
+    {
+      "name": "tar-42d-20250719",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250719.json",
+      "resumed": false,
+      "sha256": "c0889bfd38455a15f9874ad142cc1f8672925bec1cd0f02abc7e8bdd83429934"
+    },
+    {
+      "name": "tar-42d-20250726",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250726.json",
+      "resumed": false,
+      "sha256": "4c62a346596d6c19edf1af1a79a3ac6fabd94415a6bb93749c8b12931e45b47b"
+    },
+    {
+      "name": "tar-42d-20250802",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250802.json",
+      "resumed": false,
+      "sha256": "35a928749b2bf60d9c0c00ed65887cba20cc1d92e45b2154cef23642ffca5663"
+    },
+    {
+      "name": "tar-42d-20250809",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250809.json",
+      "resumed": false,
+      "sha256": "44fb74e23123700878945b0686f66076e763fa171a9d004b355cdbe8310f5a4d"
+    },
+    {
+      "name": "tar-42d-20250816",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250816.json",
+      "resumed": false,
+      "sha256": "6ee5b2fc8c327ed8f5d1d2bf1950061fb812497622465ff17fad7387f06ee576"
+    },
+    {
+      "name": "tar-42d-20250823",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250823.json",
+      "resumed": false,
+      "sha256": "4335f41e1cff8f4e1405cf50a1a5171e08f39e345cb09bf7af228e5ad665fd90"
+    },
+    {
+      "name": "tar-42d-20250830",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250830.json",
+      "resumed": false,
+      "sha256": "c1669881ead59f15ac819d06e9b8b471e330955dd9ba12fb4d87e29e42e3de14"
+    },
+    {
+      "name": "tar-42d-20250906",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250906.json",
+      "resumed": false,
+      "sha256": "489acb0d85903ce95380cbaba7a6f63a79ac2e74e3c3272e57317c3489536d1a"
+    },
+    {
+      "name": "tar-42d-20250913",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250913.json",
+      "resumed": false,
+      "sha256": "f46d75bc228f5f60e00476320336b873efed9ac6c6ab5623284920d690a8a120"
+    },
+    {
+      "name": "tar-42d-20250920",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250920.json",
+      "resumed": false,
+      "sha256": "f2ddf82aaf7a6f440c46c78e828e0cebcf99041af88271351ae127c60424a26d"
+    },
+    {
+      "name": "tar-42d-20250927",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20250927.json",
+      "resumed": false,
+      "sha256": "ebc6657b572f52bed023a42390e6f94a05a1cebd3b149217c242f4ae02e3757a"
+    },
+    {
+      "name": "tar-42d-20251004",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20251004.json",
+      "resumed": false,
+      "sha256": "be2bb193bfb33318710c3117409bea7148ebfdd185ccb15b6bb04f547a78e8bc"
+    },
+    {
+      "name": "tar-42d-20251011",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20251011.json",
+      "resumed": false,
+      "sha256": "7d1efb2076b6080cc965b3ad7d6a1479950240ebdc3b0f82cbaefaf58340b3e5"
+    },
+    {
+      "name": "tar-42d-20251018",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20251018.json",
+      "resumed": false,
+      "sha256": "b38ef769ff44020f2cbfdbcd3e79401e58e9811bd5a90aff1a3512973ddcfc90"
+    },
+    {
+      "name": "tar-42d-20251025",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20251025.json",
+      "resumed": false,
+      "sha256": "f937e9f6513f102778414480ed7feb98428f13240bd65807fc6352a419b7b72b"
+    },
+    {
+      "name": "tar-42d-20251101",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20251101.json",
+      "resumed": false,
+      "sha256": "ad97b5ae6ff8a9eb3b488423aae61106ced8825b72a01d4ba5ccf53e8cd81053"
+    },
+    {
+      "name": "tar-42d-20251108",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20251108.json",
+      "resumed": false,
+      "sha256": "ae9823b69706178eaa61fa7729924871bee219c4ad9ca2e26d05a15aa7a640cf"
+    },
+    {
+      "name": "tar-42d-20251115",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20251115.json",
+      "resumed": false,
+      "sha256": "6cb79e3963a0769ab8774380bff8d8dd3739011c4faf05dc8a5c35d8a0a1a415"
+    },
+    {
+      "name": "tar-42d-20251122",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20251122.json",
+      "resumed": false,
+      "sha256": "a7297fee221661399ad2276e6d5557d078ea3ba2f14be563aa53b1c344ecd918"
+    },
+    {
+      "name": "tar-42d-20251129",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20251129.json",
+      "resumed": false,
+      "sha256": "00946f0f2d113348e1c32e88ffe0efddf42b701ef2d1deaf8a457de5bc45b818"
+    },
+    {
+      "name": "tar-42d-20251206",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20251206.json",
+      "resumed": false,
+      "sha256": "db96eb3ac035983ad29b13f102ba7ba0637fe697c0a2a39e1740f435ed39d21e"
+    },
+    {
+      "name": "tar-42d-20251213",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20251213.json",
+      "resumed": false,
+      "sha256": "24c879219558d7751033d7bb904fcb8f70f6944108c03f9f207459e4f2091f64"
+    },
+    {
+      "name": "tar-42d-20251220",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20251220.json",
+      "resumed": false,
+      "sha256": "8d503d873d52ee148183bfb2940861a9ec16f95c56e52b76f9f8de63fe7bdd4c"
+    },
+    {
+      "name": "tar-42d-20251227",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20251227.json",
+      "resumed": false,
+      "sha256": "6bca4fa11b57c746b10b491aa41abeadda78fc6891f6c67a83e85737ba8956f3"
+    },
+    {
+      "name": "tar-42d-20260103",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20260103.json",
+      "resumed": false,
+      "sha256": "bfc419becb56840d1b3752a8f20eca943d7d5958dfc55069152fd5d387616f00"
+    },
+    {
+      "name": "tar-42d-20260110",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20260110.json",
+      "resumed": false,
+      "sha256": "5780f4a421f6f61bab88b111793fd8c44c74308d9626ef1c3fb1666b005e2726"
+    },
+    {
+      "name": "tar-42d-20260117",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20260117.json",
+      "resumed": false,
+      "sha256": "e8de9fe23cabd9308941b9249e83c121c38c976e8a08ad22ec6aa6db5cb015ce"
+    },
+    {
+      "name": "tar-42d-20260124",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20260124.json",
+      "resumed": false,
+      "sha256": "d490b0e7b3da207254fde7cdeea202ad4eaf2dc418702b110afb22dbbf4a56e4"
+    },
+    {
+      "name": "tar-42d-20260131",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20260131.json",
+      "resumed": false,
+      "sha256": "0e37b8e97d798dbe6ac6cba3d7ab9323df4453109ed34d0a7b6e6d172b5caff7"
+    },
+    {
+      "name": "tar-42d-20260207",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20260207.json",
+      "resumed": false,
+      "sha256": "0ca952d82b73aac585df29b7b2b2889078d97ea8e324baa7bb79b02113abd0b0"
+    },
+    {
+      "name": "tar-42d-20260214",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20260214.json",
+      "resumed": false,
+      "sha256": "5bdd31a913d498c2c750cd1bc57d9ed7ba7f65a8507981661cf929a348608a51"
+    },
+    {
+      "name": "tar-42d-20260221",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20260221.json",
+      "resumed": false,
+      "sha256": "5f12a43f63d5a91534eba859b01dadd7dfd3e48d71d8cd5c05a883c9b812aad4"
+    },
+    {
+      "name": "tar-42d-20260228",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20260228.json",
+      "resumed": false,
+      "sha256": "c075a34ed7d8bf1f3cc28c2c50fdc9b41215a6ace77d20ef9230a4d25f23b0ff"
+    },
+    {
+      "name": "tar-42d-20260307",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20260307.json",
+      "resumed": false,
+      "sha256": "27f550791bfc5586d150f84be56883a972336e8ef7b1779cd6d5ba3acf1f3b3d"
+    },
+    {
+      "name": "tar-42d-20260314",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20260314.json",
+      "resumed": false,
+      "sha256": "f522bbe62aca4494e427f31ac3daf56f2baec752a2d0ae178eab29994b8e27f0"
+    },
+    {
+      "name": "tar-42d-20260321",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20260321.json",
+      "resumed": false,
+      "sha256": "5b87730707a7eb894e9235527656a764ae0365b2eb2e4b7764e3e34d5b0215ff"
+    },
+    {
+      "name": "tar-42d-20260328",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20260328.json",
+      "resumed": false,
+      "sha256": "3e39d63df7e8c8da968442e952604fc04e01b31fd62fd83a17571eedbff6006f"
+    },
+    {
+      "name": "tar-42d-20260404",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20260404.json",
+      "resumed": false,
+      "sha256": "77248eb95bcba10a27f48188ed4e41fbbe73dbff6aa06ec7b51f3043dbe9b2b5"
+    },
+    {
+      "name": "tar-42d-20260411",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20260411.json",
+      "resumed": false,
+      "sha256": "405da409aca849839b6513724b89217c2a2e2d75cf06fa9c39f5ba59fcd02bf8"
+    },
+    {
+      "name": "tar-42d-20260418",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20260418.json",
+      "resumed": false,
+      "sha256": "691ea16f7af2337d5a2b3301d0e51a553d1cc3c7c3faf8a1fc31a8c8124e9d50"
+    },
+    {
+      "name": "tar-42d-20260425",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20260425.json",
+      "resumed": false,
+      "sha256": "09c7dd73b534e1d08d7cc3b4b404a3bbc991f05f9c1a88639798ec5a99b90f27"
+    },
+    {
+      "name": "tar-42d-20260502",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20260502.json",
+      "resumed": false,
+      "sha256": "b6ec7d87c53fa4af73bdbd9f43d76d8348e1f9890b9ebeb8c1c9f6f9d8aa35dc"
+    },
+    {
+      "name": "tar-42d-20260509",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20260509.json",
+      "resumed": false,
+      "sha256": "833adb743f7c6d9db9384a1078be21aad0820709047e42f37442ceae5b6fbd20"
+    },
+    {
+      "name": "tar-42d-20260516",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20260516.json",
+      "resumed": false,
+      "sha256": "114f1c00238d3fc0bf19daaa2d254ab7551207400a31f0783dad6eae1555a16f"
+    },
+    {
+      "name": "tar-42d-20260523",
+      "path": "/home/bumblebee/Project/grid_binance/artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/fit-snapshots/t1/tar/tar-42d-20260523.json",
+      "resumed": false,
+      "sha256": "81f3528cba31d7e80fc110a6b07d76e795cf7cc06b3bbfc23650f6e940e1827f"
+    }
+  ],
+  "source_commit": "d516d40dafbac63d0c9d607224cae8de9721a2ce",
+  "wall_seconds": 1290.2517039775848,
+  "workers": 8
+}

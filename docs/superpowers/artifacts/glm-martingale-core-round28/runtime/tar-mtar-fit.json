@@ -1,0 +1,28 @@
+{
+  "argv": [
+    "scripts/r28_fit_threshold.py",
+    "--phase",
+    "tar-mtar",
+    "--artifact-root",
+    "artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce",
+    "--workers",
+    "8",
+    "--resume"
+  ],
+  "blas_threads": {
+    "MKL_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1"
+  },
+  "data_hash": "4ceed5eb0bcfdea701a6e156d570cfb33c2ea7274413abee5c93116fc28afec4",
+  "end_epoch": 1785114557.4448516,
+  "exit_code": 0,
+  "peak_rss_kib": 419836,
+  "pid": 2,
+  "policy_hash": "0898a8d7bba0e0369e09b92cd9e7b589eda7519367add0666b391cbe23d6f486",
+  "resume": true,
+  "source_commit": "d516d40dafbac63d0c9d607224cae8de9721a2ce",
+  "start_epoch": 1785113267.190147,
+  "wall_seconds": 1290.25470495224,
+  "workers": 8
+}

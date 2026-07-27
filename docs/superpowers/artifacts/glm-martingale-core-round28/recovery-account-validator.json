@@ -1,0 +1,15 @@
+{
+  "direction_cases": {
+    "high_low": true,
+    "low_high": true
+  },
+  "passed": true,
+  "phase": "recovery-g0",
+  "production_replay_function_called": false,
+  "raw_signal_rows_read": true,
+  "schema_version": 1,
+  "signal_manifest_count": 4,
+  "source_commit": "d516d40dafbac63d0c9d607224cae8de9721a2ce",
+  "validator": "independent_r28_recovery_account_validator",
+  "violations": []
+}

@@ -1,0 +1,61 @@
+{
+  "c0_snapshot_count": 304,
+  "checked_copula_invalid_beta_pair_rejects": 6,
+  "checked_copula_pairs": 103,
+  "checked_threshold_pairs": 312,
+  "future_shift_canary": {
+    "fit_cutoff_ms": 1691798400000,
+    "future_shift_changes_only_after_cutoff": true,
+    "future_timestamp_ms": 1691801999999,
+    "later_snapshot_original_hash": "97fdaada71a723562677f6f2cc590204927819c1e709ab1048186c3e3bdd1a1b",
+    "later_snapshot_shifted_hash": "b38785eddf3dde2df78dfd0d1ba5d5acd8d50c428d0a25991026cdcbd48eeb3f",
+    "passed": true,
+    "prior_snapshot_original_hash": "5e2b166bbd44ef3cd7d6dfe4075d01803e4cf732a8e65fdbc55257bc14f85fe5",
+    "prior_snapshot_shifted_hash": "5e2b166bbd44ef3cd7d6dfe4075d01803e4cf732a8e65fdbc55257bc14f85fe5",
+    "prior_snapshot_unchanged": true
+  },
+  "market": {
+    "bytes": 119277240320,
+    "path": "/home/bumblebee/Project/grid_binance/data/market_data_full.db",
+    "raw_database_read": true,
+    "sha256": "36ec45fed5d048a783e16ecc0f90ea46e0ffedededf157d25f127edf7d19baa6"
+  },
+  "max_numeric_error": 8.881784197001252e-16,
+  "passed": true,
+  "phase": "all-models",
+  "production_fitter_imported": false,
+  "raw_database_read": true,
+  "runtime": {
+    "argv": [
+      "scripts/r28_validate_models.py",
+      "--phase",
+      "all-models",
+      "--artifact-root",
+      "artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce",
+      "--workers",
+      "8",
+      "--resume"
+    ],
+    "blas_threads": {
+      "MKL_NUM_THREADS": "1",
+      "OMP_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1"
+    },
+    "end_epoch": 1785115222.2416997,
+    "exit_code": 0,
+    "peak_rss_kib": 632328,
+    "pid": 2,
+    "start_epoch": 1785114611.2156296,
+    "wall_seconds": 611.0260708332062,
+    "workers": 8
+  },
+  "schema_version": 1,
+  "source_commit": "d516d40dafbac63d0c9d607224cae8de9721a2ce",
+  "threshold_bh_pass_count": 73,
+  "threshold_finite_fit_count": 34000,
+  "threshold_pair_fit_denominator": 36684,
+  "threshold_snapshot_count": 304,
+  "tolerance": 5e-05,
+  "validator": "independent_r28_raw_db_model_validator",
+  "violations": []
+}

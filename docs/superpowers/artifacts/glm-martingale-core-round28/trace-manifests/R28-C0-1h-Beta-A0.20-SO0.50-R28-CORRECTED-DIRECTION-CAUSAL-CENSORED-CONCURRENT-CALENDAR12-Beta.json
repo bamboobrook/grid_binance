@@ -1,0 +1,13 @@
+{
+  "policy_id": "R28-C0-1h-Beta-A0.20-SO0.50-R28-CORRECTED-DIRECTION-CAUSAL-CENSORED-CONCURRENT-CALENDAR12-Beta",
+  "risk": {
+    "bytes": 259696104,
+    "path": "artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/g2/risk-rle/R28-C0-1h-Beta-A0.20-SO0.50-R28-CORRECTED-DIRECTION-CAUSAL-CENSORED-CONCURRENT-CALENDAR12-Beta.jsonl",
+    "sha256": "a2cfe3c7d7f294417b8dad0da4c05e336108283cd6b1493617a1dda50b04c053"
+  },
+  "trace": {
+    "bytes": 2447966,
+    "path": "artifacts-local/round28/d516d40dafbac63d0c9d607224cae8de9721a2ce/g2/account-traces/R28-C0-1h-Beta-A0.20-SO0.50-R28-CORRECTED-DIRECTION-CAUSAL-CENSORED-CONCURRENT-CALENDAR12-Beta.jsonl",
+    "sha256": "54778321ea452da7e2029d8c8a4aff89e6df5019563a6bd403f001cc0b9eaa7a"
+  }
+}

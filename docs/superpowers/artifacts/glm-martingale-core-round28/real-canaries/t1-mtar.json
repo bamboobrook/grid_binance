@@ -1,0 +1,40 @@
+{
+  "activation": "FIRST_SIGNAL",
+  "anchor_ms": 1689984000000,
+  "btc_margin": 0.0,
+  "btc_orders": 0,
+  "btc_pnl": 0.0,
+  "btc_positions": 0,
+  "completed_signal_ms": 1690394399999,
+  "config_id": "T1-MTAR",
+  "direction": "short_left_long_right",
+  "eligible_open_ms": 1690394400000,
+  "final_groups": 0,
+  "final_pending": 0,
+  "final_positions": 0,
+  "final_reserve": -0.0,
+  "h_left": null,
+  "h_right": null,
+  "left": {
+    "open": 13.121,
+    "qty": 4.0,
+    "side": "sell",
+    "symbol": "AVAXUSDT",
+    "weight": 0.5160739121034322
+  },
+  "model_hash": "cefba1da55291ce80be5c42e0eec3377e3522afafcffc749ad22c57ab05b5bdf",
+  "next_1m_open_proved": true,
+  "pair_id": "AVAXUSDT__GALAUSDT",
+  "passed": true,
+  "resolved_gross_mismatch": 0.016635932258568402,
+  "right": {
+    "open": 0.02298,
+    "qty": 2106.0,
+    "side": "buy",
+    "symbol": "GALAUSDT",
+    "weight": 0.4839260878965677
+  },
+  "schema_version": 1,
+  "wallet_after_open": 1999.9394720720002,
+  "wallet_after_reconcile": 1999.8789441440003
+}

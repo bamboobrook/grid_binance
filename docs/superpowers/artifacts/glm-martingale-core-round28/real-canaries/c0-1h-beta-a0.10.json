@@ -1,0 +1,40 @@
+{
+  "activation": "FIRST_SIGNAL",
+  "anchor_ms": 1688169600000,
+  "btc_margin": 0.0,
+  "btc_orders": 0,
+  "btc_pnl": 0.0,
+  "btc_positions": 0,
+  "completed_signal_ms": 1688176799999,
+  "config_id": "C0-1h-A0.10",
+  "direction": "long_left_short_right",
+  "eligible_open_ms": 1688176800000,
+  "final_groups": 0,
+  "final_pending": 0,
+  "final_positions": 0,
+  "final_reserve": -0.0,
+  "h_left": 0.9769410013363757,
+  "h_right": 0.0009816191992957912,
+  "left": {
+    "open": 13.119,
+    "qty": 3.0,
+    "side": "buy",
+    "symbol": "AVAXUSDT",
+    "weight": 0.39017403599480144
+  },
+  "model_hash": "87132f4f6cb5027f9c78f087a231d479de0b09ea179fd2bdc13e735933ee19af",
+  "next_1m_open_proved": true,
+  "pair_id": "AVAXUSDT__DOGEUSDT",
+  "passed": true,
+  "resolved_gross_mismatch": 0.00815223728289181,
+  "right": {
+    "open": 0.06894,
+    "qty": 885.0,
+    "side": "sell",
+    "symbol": "DOGEUSDT",
+    "weight": 0.6098259640051985
+  },
+  "schema_version": 1,
+  "wallet_after_open": 1999.93977866,
+  "wallet_after_reconcile": 1999.87955732
+}
