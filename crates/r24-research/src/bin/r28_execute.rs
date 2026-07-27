@@ -3550,7 +3550,6 @@ fn execute_so(
         reserve_before,
         "so_reserve_consumed",
     )?;
-    let reserve_after_consume = account.reserved_quote;
     let left = cache.bar(market, &row.left, timestamp)?;
     let right = cache.bar(market, &row.right, timestamp)?;
     let success = fill_pair_level(
@@ -3593,6 +3592,7 @@ fn execute_so(
     }
     let following =
         (next_level + 1 < LAYERS.len()).then_some(group.base_gross * LAYERS[next_level + 1]);
+    let reserve_before_refill = account.reserved_quote;
     account.reserve_group_after_fill(timestamp, group_id, following, next_gross)?;
     emit_reserve_event(
         writer,
@@ -3602,7 +3602,7 @@ fn execute_so(
         row,
         group_id,
         timestamp,
-        reserve_after_consume,
+        reserve_before_refill,
         "group_after_so",
     )?;
     account.traces.clear();
